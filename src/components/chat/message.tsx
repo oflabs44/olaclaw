@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
 import type { PiMessage, PiMessagePart } from "@/transcript";
+import { Markdown } from "./markdown";
 
 export type ToolResult = Extract<PiMessagePart, { type: "tool-result" }>;
 type ToolCall = Extract<PiMessagePart, { type: "tool-call" }>;
@@ -209,10 +210,10 @@ export function AssistantMessage({
 					case "text":
 						if (part.text === "" && !(isLive && isLastPart)) return null;
 						return (
-							<p key={index} className="text-lg whitespace-pre-wrap [overflow-wrap:anywhere] max-wide:text-[16px]">
-								{part.text}
+							<div key={index} className="[overflow-wrap:anywhere]">
+								<Markdown text={part.text} isStreaming={isLive && isLastPart} />
 								{isLive && isLastPart && <StreamingCursor />}
-							</p>
+							</div>
 						);
 					case "image":
 						return (

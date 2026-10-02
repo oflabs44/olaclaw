@@ -2,6 +2,10 @@
 @import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
 @import "./tokens.css";
+@import "streamdown/styles.css";
+/* Streamdown and its code plugin style themselves with Tailwind classes. */
+@source "../node_modules/streamdown/dist/*.js";
+@source "../node_modules/@streamdown/code/dist/*.js";
 
 /* The theme is on <html data-theme> before first paint (see routes/__root.tsx). */
 @custom-variant dark ([data-theme="dark"] &);
@@ -9,6 +13,12 @@
 
 /* Tokens exposed to Tailwind utilities, as in Bureau's styles.css; values live in tokens.css. */
 @theme inline {
+	/* The shadcn names Streamdown's own classes use, mapped onto the Bureau tokens. */
+	--color-border: var(--line);
+	--color-muted: var(--wash);
+	--color-muted-foreground: var(--ink-soft);
+	--color-background: var(--sheet);
+	--color-foreground: var(--ink);
 	--font-sans: var(--font-sans);
 	--font-mono: var(--font-mono);
 	--color-*: initial;
@@ -221,5 +231,15 @@ body::before {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+	}
+}
+
+/* Tailwind's bare `border` utility defaults to currentColor; Streamdown's code blocks rely on a
+   themed default, so every border starts as a hairline. */
+@layer base {
+	*,
+	::before,
+	::after {
+		border-color: var(--line);
 	}
 }
