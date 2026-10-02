@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>olaclaw – Headline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,400;0,600;1,400&family=Sofia+Sans+Extra+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+	--aubergine: #1f1030;
+	--plum: #33204a;
+	--mango: #ffb52e;
+	--lilac-white: #f1e9f7;
+	--magenta: #ff3f8e;
+	--haze: #a993bf;
+	--display: "Sofia Sans Extra Condensed", "Arial Narrow", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+	margin: 0;
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	height: 100dvh;
+	font: 400 1.09rem/1.6 "Sofia Sans", system-ui, sans-serif;
+	color: var(--lilac-white);
+	background: var(--aubergine);
+}
+button, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--mango); outline-offset: 3px; }
+.column { width: 100%; max-width: 46rem; margin: 0 auto; padding-inline: clamp(1.1rem, 5vw, 2rem); }
+
+.top { padding-block: max(0.9rem, env(safe-area-inset-top)) 0.9rem; }
+.top .column { display: flex; align-items: center; justify-content: space-between; }
+.wordmark {
+	margin: 0;
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font: 800 1.7rem/1 var(--display);
+	letter-spacing: 0.01em;
+}
+.wordmark svg { width: 1.25rem; height: 1.25rem; color: var(--magenta); }
+.text-button {
+	border: 0;
+	padding: 0.25rem 0;
+	background: none;
+	font: 700 1.35rem/1 var(--display);
+	border-bottom: 3px solid var(--magenta);
+}
+.text-button:hover { color: var(--mango); }
+
+[data-transcript] { overflow-y: auto; padding-block: 1.5rem 2.5rem; }
+/* The whole idea: what you ask is the headline, what comes back is the copy. */
+.prompt {
+	margin: 2.6rem 0 0.9rem;
+	font: 800 clamp(2.3rem, 9vw, 4.4rem)/0.94 var(--display);
+	color: var(--mango);
+	text-wrap: balance;
+	white-space: pre-wrap;
+}
+.prompt:first-child { margin-top: 0.5rem; }
+.reply { max-width: 35rem; margin-left: clamp(0rem, 8vw, 5rem); display: grid; gap: 0.7rem; }
+.reply p { margin: 0; white-space: pre-wrap; }
+.reply details { color: var(--haze); font-size: 0.98rem; }
+.reply summary { cursor: pointer; width: fit-content; }
+.reply details p { margin-top: 0.3rem; font-style: italic; }
+.tool { display: flex; align-items: center; gap: 0.6rem; color: var(--haze); font-size: 0.98rem; }
+.tool::before { content: ""; flex: none; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--haze); }
+.tool[data-status="running"] { color: var(--lilac-white); }
+.tool[data-status="running"]::before { background: var(--magenta); animation: pulse 0.9s ease-in-out infinite; }
+[data-live] .answer::after {
+	content: "";
+	display: inline-block;
+	width: 0.55em;
+	height: 1.05em;
+	margin-left: 0.15em;
+	vertical-align: -0.18em;
+	background: var(--magenta);
+	animation: blink 0.8s steps(2) infinite;
+}
+.stopped { display: none; color: var(--magenta); font: 700 1.25rem/1 var(--display); }
+[data-stopped] .stopped { display: block; }
+
+.bottom { background: var(--plum); padding-block: 0.8rem max(0.8rem, env(safe-area-inset-bottom)); }
+[data-queue] { margin: 0 0 0.3rem; color: var(--mango); font-size: 0.95rem; }
+[data-composer] { display: flex; align-items: flex-end; gap: 1rem; }
+textarea {
+	flex: 1;
+	min-width: 0;
+	border: 0;
+	padding: 0.2rem 0;
+	resize: none;
+	background: transparent;
+	font: 700 clamp(1.6rem, 6vw, 2.1rem)/1.05 var(--display);
+	caret-color: var(--mango);
+	field-sizing: content;
+	max-height: 8rem;
+}
+textarea::placeholder { color: var(--haze); opacity: 1; }
+textarea:focus { outline: none; }
+[data-composer]:focus-within { box-shadow: 0 3px 0 var(--mango); }
+.send, .stop { border: 0; background: none; font: 800 clamp(1.6rem, 6vw, 2.1rem)/1.05 var(--display); padding: 0.2rem 0; }
+.send { color: var(--mango); }
+.stop { color: var(--magenta); }
+.when-running { display: none; }
+body[data-state="running"] .when-running { display: inline; }
+body[data-state="running"] .when-idle { display: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* Chats open as a full-screen index, set like a contents page. */
+.index {
+	position: fixed;
+	inset: 0;
+	z-index: 2;
+	overflow-y: auto;
+	padding-block: max(0.9rem, env(safe-area-inset-top)) 2rem;
+	background: var(--aubergine);
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s ease, visibility 0.2s;
+}
+body.chats-open .index { visibility: visible; opacity: 1; }
+.index-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.index ol { margin: 0; padding: 0; list-style: none; }
+.index li { border-top: 1px solid var(--plum); }
+.index a {
+	display: grid;
+	gap: 0.15rem;
+	padding: 0.9rem 0 1rem;
+	color: var(--lilac-white);
+	text-decoration: none;
+	font: 800 clamp(1.9rem, 7.5vw, 3.1rem)/0.98 var(--display);
+}
+.index a:hover, .index a[aria-current="page"] { color: var(--mango); }
+.index a small { font: 400 0.95rem/1.4 "Sofia Sans", sans-serif; color: var(--haze); }
+.index .new { color: var(--magenta); }
+
+@keyframes pulse { 50% { transform: scale(1.7); opacity: 0.4; } }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+	* { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+	<div class="column">
+		<p class="wordmark">
+			<svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M6 27 13 5M14 28 21 6M22 27 28 9"/></svg>
+			olaclaw
+		</p>
+		<button class="text-button" type="button" data-toggle-chats aria-expanded="false" aria-controls="chats">Chats</button>
+	</div>
+</header>
+
+<main data-transcript aria-label="Conversation" aria-live="polite" data-autoplay="What needs me this week?">
+	<h2 class="prompt column">Did the backup run last night?</h2>
+	<div class="column">
+		<article class="reply">
+			<details><summary>How it worked this out</summary><p>The backup log on the NAS has the answer. Read the last two entries.</p></details>
+			<p class="tool" data-status="done">Reading the backup log</p>
+			<p class="answer">No. It failed at 03:02 with “target volume full”. The run on Monday night failed with the same message.</p>
+		</article>
+	</div>
+	<h2 class="prompt column">What needs me this week?</h2>
+</main>
+
+<footer class="bottom">
+	<div class="column">
+		<p data-queue hidden></p>
+		<form data-composer>
+			<label class="visually-hidden" for="message">Message</label>
+			<textarea id="message" data-input rows="1" placeholder="Ask the next thing"></textarea>
+			<button class="stop" type="button" data-stop hidden>Stop</button>
+			<button class="send" type="submit"><span class="when-idle">Send</span><span class="when-running">Queue</span></button>
+		</form>
+	</div>
+</footer>
+
+<aside class="index" id="chats" aria-label="Chats">
+	<div class="column">
+		<div class="index-top">
+			<p class="wordmark">Chats</p>
+			<button class="text-button" type="button" data-toggle-chats aria-expanded="false" aria-controls="chats">Close</button>
+		</div>
+		<ol>
+			<li><a class="new" href="#">Start a new chat</a></li>
+			<li><a href="#" aria-current="page">This week<small>Just now</small></a></li>
+			<li><a href="#">Reply to Mr. Brandt<small>Yesterday</small></a></li>
+			<li><a href="#">Backup on the NAS<small>Tuesday</small></a></li>
+			<li><a href="#">Board minutes, September<small>28 September</small></a></li>
+			<li><a href="#">Receipts for the 2025 tax return<small>21 September</small></a></li>
+		</ol>
+	</div>
+</aside>
+
+<template id="t-user"><h2 class="prompt column" data-text></h2></template>
+<template id="t-agent">
+	<div class="column">
+		<article class="reply">
+			<details data-thinking><summary>How it worked this out</summary><p data-thinking-text></p></details>
+			<p class="tool" data-tool><span data-tool-name></span></p>
+			<p class="answer" data-text></p>
+			<p class="stopped">Stopped</p>
+		</article>
+	</div>
+</template>
+<script src="prototype.js"></script>
+</body>
+</html>
