@@ -53,7 +53,7 @@ export function Conversation() {
 					aria-label="Conversation"
 					aria-live="polite"
 					aria-busy={isRunning}
-					className="mx-auto grid max-w-[44rem] gap-[1.4rem] max-wide:gap-[1.1rem]"
+					className="mx-auto grid max-w-[44rem] gap-[1.4rem] max-wide:gap-[1.1rem] [&>*]:min-w-0"
 				>
 					{isEmpty && (
 						<Empty className="pt-[12vh]">

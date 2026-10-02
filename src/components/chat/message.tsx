@@ -210,7 +210,7 @@ export function AssistantMessage({
 					case "text":
 						if (part.text === "" && !(isLive && isLastPart)) return null;
 						return (
-							<div key={index} className="[overflow-wrap:anywhere]">
+							<div key={index} className="min-w-0 [overflow-wrap:anywhere]">
 								<Markdown text={part.text} isStreaming={isLive && isLastPart} />
 								{isLive && isLastPart && <StreamingCursor />}
 							</div>
