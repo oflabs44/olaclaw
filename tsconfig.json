@@ -5,12 +5,15 @@
 		"jsx": "react-jsx",
 		"module": "preserve",
 		"moduleResolution": "bundler",
-		"types": [],
+		"types": ["vite/client"],
 		"strict": true,
 		"noEmit": true,
 		"allowImportingTsExtensions": true,
 		"isolatedModules": true,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"paths": {
+			"@/*": ["./src/*"]
+		}
 	},
 	"include": [
 		"src",

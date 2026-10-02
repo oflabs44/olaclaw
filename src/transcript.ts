@@ -34,6 +34,8 @@ export type PiMessage = {
 	readonly role: "user" | "assistant" | "tool" | "notice";
 	readonly parts: readonly PiMessagePart[];
 	readonly error?: string;
+	/** The run was aborted while this assistant message was being written, usually by a Stop. */
+	readonly stopped?: boolean;
 };
 
 function userParts(content: UserMessage["content"]): PiMessagePart[] {
@@ -69,6 +71,7 @@ export function projectMessage(message: Message, id: string): PiMessage {
 				role: "assistant",
 				parts: message.content.map((block) => projectBlock(block)),
 				error: message.errorMessage ?? (message.stopReason === "error" ? "Model error" : undefined),
+				stopped: message.stopReason === "aborted",
 			};
 		case "toolResult":
 			return {

@@ -10,20 +10,31 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "beta",
+		"@tailwindcss/vite": "^4.3.3",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
 		"@vitejs/plugin-react": "^6.1.1",
 		"cf": "^1.0.0-beta.5",
+		"tailwindcss": "^4.3.3",
 		"typescript": "^7.0.2",
 		"vite": "^8.3.0"
 	},
 	"dependencies": {
+		"@base-ui/react": "^1.8.0",
 		"@earendil-works/pi-ai": "^1.0.0",
 		"@earendil-works/pi-durable": "^1.0.0",
+		"@fontsource-variable/geist-mono": "^5.3.0",
+		"@fontsource-variable/schibsted-grotesk": "^5.3.0",
+		"@hugeicons/core-free-icons": "^4.3.5",
+		"@hugeicons/react": "^1.1.10",
 		"@tanstack/react-router": "^1.170.41",
 		"@tanstack/react-start": "^1.168.60",
+		"@tanstack/react-store": "^0.11.2",
 		"agents": "^0.26.0",
+		"cn": "^0.4.0",
 		"react": "^19.3.0",
-		"react-dom": "^19.3.0"
+		"react-dom": "^19.3.0",
+		"use-stick-to-bottom": "^1.1.6",
+		"zod": "^4.6.5"
 	}
 }
