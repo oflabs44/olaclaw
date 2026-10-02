@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>olaclaw – Overprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gabarito:wght@400..900&display=swap" rel="stylesheet">
+<style>
+:root {
+	--paper: #eef3f1;
+	--pink: #ff48b0;
+	--blue: #0078bf;
+	--ink: #1b1b3a;
+	--halftone-blue: radial-gradient(circle, var(--blue) 1.6px, transparent 2px);
+	--halftone-pink: radial-gradient(circle, var(--pink) 1.6px, transparent 2px);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+	margin: 0;
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	height: 100dvh;
+	overflow: hidden;
+	font: 400 1.09rem/1.55 "Gabarito", system-ui, sans-serif;
+	color: var(--ink);
+	background: var(--paper);
+}
+button, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.column { width: 100%; max-width: 40rem; margin: 0 auto; padding-inline: clamp(1rem, 5vw, 1.5rem); }
+
+/* Two inks. Where they overlap, the print turns violet. */
+.top { position: relative; padding-block: max(1rem, env(safe-area-inset-top)) 1rem; }
+.top::after {
+	content: "";
+	position: absolute;
+	inset: auto 0 -1.4rem 0;
+	height: 1.4rem;
+	background: var(--halftone-blue) 0 0 / 7px 7px;
+	mask-image: linear-gradient(#000, transparent);
+	opacity: 0.55;
+	pointer-events: none;
+}
+.top .column { display: flex; align-items: center; gap: 0.9rem; }
+.inks { position: relative; flex: none; width: 3.9rem; height: 2.6rem; }
+.inks i { position: absolute; top: 0; width: 2.6rem; height: 2.6rem; border-radius: 50%; mix-blend-mode: multiply; transition: transform 0.5s ease; }
+.inks i:first-child { left: 0; background: var(--pink); }
+.inks i:last-child { right: 0; background: var(--blue); }
+body[data-state="running"] .inks i:first-child { animation: press-right 1.3s ease-in-out infinite; }
+body[data-state="running"] .inks i:last-child { animation: press-left 1.3s ease-in-out infinite; }
+.wordmark { margin: 0; flex: 1; font-size: 1.9rem; font-weight: 900; letter-spacing: -0.035em; line-height: 1; }
+.chip {
+	border: 2.5px solid var(--ink);
+	border-radius: 0.7rem;
+	padding: 0.35rem 0.85rem;
+	background: var(--paper);
+	font-weight: 700;
+	box-shadow: 4px 4px 0 var(--pink);
+}
+.chip:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--pink); }
+
+[data-transcript] { overflow-y: auto; padding-block: 2rem 1.5rem; }
+[data-transcript] > * + * { margin-top: 1.5rem; }
+.msg p { margin: 0; white-space: pre-wrap; }
+.msg-user { display: flex; justify-content: flex-end; }
+.msg-user p {
+	max-width: 86%;
+	padding: 0.7rem 1.05rem;
+	border-radius: 1.1rem 1.1rem 0.25rem 1.1rem;
+	color: var(--paper);
+	font-weight: 600;
+	background: var(--blue);
+	/* The pink plate printed slightly off register. */
+	box-shadow: 6px 6px 0 var(--pink);
+	transform: rotate(-0.7deg);
+}
+.msg-agent { display: grid; gap: 0.65rem; padding-left: 1.3rem; position: relative; }
+.msg-agent::before {
+	content: "";
+	position: absolute;
+	inset: 0.3rem auto 0.3rem 0;
+	width: 7px;
+	background: var(--halftone-pink) 0 0 / 7px 7px;
+}
+.msg-agent details { font-size: 0.97rem; color: var(--blue); }
+.msg-agent summary { cursor: pointer; width: fit-content; font-weight: 700; }
+.msg-agent details p { margin-top: 0.3rem; color: var(--ink); opacity: 0.8; }
+.tool {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	width: fit-content;
+	padding: 0.25rem 0.8rem 0.25rem 0.55rem;
+	border: 2px solid var(--blue);
+	border-radius: 999px;
+	color: var(--blue);
+	font-size: 0.95rem;
+	font-weight: 600;
+}
+.tool::before { content: ""; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--blue); }
+.tool[data-status="running"]::before { background: var(--pink); animation: stamp 0.8s ease-in-out infinite; }
+.answer { font-size: 1.1rem; }
+.msg-agent[data-live] .answer::after {
+	content: "";
+	display: inline-block;
+	width: 0.7em;
+	height: 0.7em;
+	margin-left: 0.25em;
+	border-radius: 50%;
+	background: var(--pink);
+	mix-blend-mode: multiply;
+	animation: stamp 0.8s ease-in-out infinite;
+}
+.stopped { display: none; width: fit-content; padding: 0.1rem 0.6rem; border-radius: 0.4rem; background: var(--pink); font-weight: 800; transform: rotate(-2deg); }
+.msg-agent[data-stopped] .stopped { display: block; }
+
+.bottom { padding-block: 0.5rem max(1.1rem, env(safe-area-inset-bottom)); }
+[data-queue] { margin: 0 0 0.45rem; font-weight: 700; color: var(--blue); }
+[data-composer] {
+	display: flex;
+	align-items: flex-end;
+	gap: 0.5rem;
+	padding: 0.45rem;
+	background: #fff;
+	border: 2.5px solid var(--ink);
+	border-radius: 1.2rem;
+	box-shadow: 6px 6px 0 var(--blue);
+}
+[data-composer]:focus-within { box-shadow: 6px 6px 0 var(--pink); }
+textarea { flex: 1; min-width: 0; border: 0; resize: none; padding: 0.5rem 0.6rem; background: transparent; field-sizing: content; max-height: 9rem; }
+textarea:focus { outline: none; }
+.send, .stop { border: 2.5px solid var(--ink); border-radius: 0.8rem; padding: 0.45rem 1rem; font-weight: 800; }
+.send { background: var(--pink); }
+.send:hover { background: var(--paper); }
+.stop { background: var(--paper); }
+.when-running { display: none; }
+body[data-state="running"] .when-running { display: inline; }
+body[data-state="running"] .when-idle { display: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* Chats: a sheet from the bottom on a phone, a panel on the right on a wide screen. */
+.sheet {
+	position: fixed;
+	z-index: 2;
+	inset: auto 0 0 0;
+	max-height: 78dvh;
+	overflow-y: auto;
+	padding: 1.2rem clamp(1rem, 5vw, 1.5rem) max(1.4rem, env(safe-area-inset-bottom));
+	background: var(--paper);
+	border-top: 2.5px solid var(--ink);
+	border-radius: 1.4rem 1.4rem 0 0;
+	transform: translateY(105%);
+	transition: transform 0.28s ease;
+	box-shadow: 0 0 0 100vmax transparent;
+}
+body.chats-open .sheet { transform: none; box-shadow: 0 0 0 100vmax rgb(27 27 58 / 0.4); }
+.sheet-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.sheet h2 { margin: 0; font-size: 1.5rem; font-weight: 900; letter-spacing: -0.02em; }
+.sheet ul { margin: 0; padding: 0 6px 6px 0; list-style: none; display: grid; gap: 0.8rem; }
+.sheet a {
+	display: block;
+	padding: 0.65rem 0.9rem;
+	border: 2.5px solid var(--ink);
+	border-radius: 0.9rem;
+	background: #fff;
+	color: inherit;
+	text-decoration: none;
+	font-weight: 700;
+	box-shadow: 5px 5px 0 var(--blue);
+}
+.sheet li:nth-child(even) a { box-shadow: 5px 5px 0 var(--pink); }
+.sheet a[aria-current="page"] { background: var(--blue); color: var(--paper); box-shadow: 5px 5px 0 var(--pink); }
+.sheet a.new { background: var(--pink); }
+.sheet small { display: block; font-weight: 400; opacity: 0.8; }
+@media (min-width: 900px) {
+	.sheet { inset: 0 0 0 auto; width: 22rem; max-height: none; border-top: 0; border-left: 2.5px solid var(--ink); border-radius: 0; transform: translateX(105%); }
+}
+
+@keyframes press-right { 50% { transform: translateX(0.55rem); } }
+@keyframes press-left { 50% { transform: translateX(-0.55rem); } }
+@keyframes stamp { 50% { transform: scale(0.55); } }
+@media (prefers-reduced-motion: reduce) {
+	* { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+	<div class="column">
+		<span class="inks" aria-hidden="true"><i></i><i></i></span>
+		<p class="wordmark">olaclaw</p>
+		<button class="chip" type="button" data-toggle-chats aria-expanded="false" aria-controls="chats">Chats</button>
+	</div>
+</header>
+
+<main class="column" data-transcript aria-label="Conversation" aria-live="polite" data-autoplay="What needs me this week?">
+	<article class="msg msg-user"><p>Good morning. Did the backup run last night?</p></article>
+	<article class="msg msg-agent">
+		<details><summary>See its reasoning</summary><p>The backup log on the NAS has the answer. Read the last two entries.</p></details>
+		<p class="tool" data-status="done">Reading the backup log</p>
+		<p class="answer">No. It failed at 03:02 with “target volume full”. The run on Monday night failed with the same message.</p>
+	</article>
+	<article class="msg msg-user"><p>What needs me this week?</p></article>
+</main>
+
+<footer class="bottom">
+	<div class="column">
+		<p data-queue hidden></p>
+		<form data-composer>
+			<label class="visually-hidden" for="message">Message</label>
+			<textarea id="message" data-input rows="1" placeholder="Message olaclaw"></textarea>
+			<button class="stop" type="button" data-stop hidden>Stop</button>
+			<button class="send" type="submit"><span class="when-idle">Send</span><span class="when-running">Queue</span></button>
+		</form>
+	</div>
+</footer>
+
+<aside class="sheet" id="chats" aria-label="Chats">
+	<div class="sheet-top">
+		<h2>Chats</h2>
+		<button class="chip" type="button" data-toggle-chats aria-expanded="false" aria-controls="chats">Close</button>
+	</div>
+	<ul>
+		<li><a class="new" href="#">Start a new chat</a></li>
+		<li><a href="#" aria-current="page">This week<small>Just now</small></a></li>
+		<li><a href="#">Reply to Mr. Brandt<small>Yesterday</small></a></li>
+		<li><a href="#">Backup on the NAS<small>Tuesday</small></a></li>
+		<li><a href="#">Board minutes, September<small>28 September</small></a></li>
+		<li><a href="#">Receipts for the 2025 tax return<small>21 September</small></a></li>
+	</ul>
+</aside>
+
+<template id="t-user"><article class="msg msg-user"><p data-text></p></article></template>
+<template id="t-agent">
+	<article class="msg msg-agent">
+		<details data-thinking><summary>See its reasoning</summary><p data-thinking-text></p></details>
+		<p class="tool" data-tool><span data-tool-name></span></p>
+		<p class="answer" data-text></p>
+		<p class="stopped">Stopped</p>
+	</article>
+</template>
+<script src="prototype.js"></script>
+</body>
+</html>

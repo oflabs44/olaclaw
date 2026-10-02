@@ -1,61 +1,41 @@
+import { Home01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { type SubmitEvent, useState } from "react";
-import type { ChatMessage } from "../agent";
-import { loadMessages, sendPrompt } from "../chat";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { PageHeader } from "@/components/workspace/page-header";
+import { getToday } from "@/workspace-data";
 
 export const Route = createFileRoute("/")({
-	loader: () => loadMessages(),
-	component: ChatPage,
+	staticData: { section: "Today" },
+	loader: () => getToday(),
+	component: TodayPage,
 });
 
-function ChatPage() {
-	const [messages, setMessages] = useState<ChatMessage[]>(Route.useLoaderData());
-	const [prompt, setPrompt] = useState("");
-	const [isWaiting, setIsWaiting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (prompt.trim() === "" || isWaiting) return;
-		setIsWaiting(true);
-		setError(null);
-		try {
-			setMessages(await sendPrompt({ data: prompt }));
-			setPrompt("");
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : String(cause));
-		} finally {
-			setIsWaiting(false);
-		}
-	}
-
+function TodayPage() {
+	const items = Route.useLoaderData();
 	return (
-		<main style={{ maxWidth: "40rem", margin: "2rem auto", fontFamily: "system-ui, sans-serif" }}>
-			<h1>olaclaw</h1>
-			<ol style={{ listStyle: "none", padding: 0 }}>
-				{messages.map((message) => (
-					<li key={message.id} style={{ margin: "0.75rem 0", whiteSpace: "pre-wrap" }}>
-						<strong>{message.role === "user" ? "You" : "Agent"}:</strong> {message.text}
-					</li>
-				))}
-			</ol>
-			{error && <p role="alert">{error}</p>}
-			<form onSubmit={handleSubmit} style={{ display: "flex", gap: "0.5rem" }}>
-				<label htmlFor="prompt" style={{ position: "absolute", left: "-9999px" }}>
-					Message
-				</label>
-				<input
-					id="prompt"
-					value={prompt}
-					onChange={(event) => setPrompt(event.target.value)}
-					placeholder="Message the agent"
-					autoComplete="off"
-					style={{ flex: 1, padding: "0.5rem" }}
-				/>
-				<button type="submit" disabled={isWaiting}>
-					{isWaiting ? "Waiting…" : "Send"}
-				</button>
-			</form>
-		</main>
+		<>
+			<PageHeader title="Today" />
+			{items.length === 0 ? (
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia>
+							<HugeiconsIcon icon={Home01Icon} strokeWidth={1.5} />
+						</EmptyMedia>
+						<EmptyTitle>Nothing planned yet</EmptyTitle>
+						<EmptyDescription>Your events, deadlines, and the work olaclaw did for you show here.</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			) : (
+				<ul className="mx-auto grid w-full max-w-[44rem] gap-1 overflow-y-auto p-6">
+					{items.map((item) => (
+						<li key={item.id} className="grid rounded px-3 py-2 hover:bg-wash">
+							{item.title}
+							<small className="text-ink-soft">{item.when}</small>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
 	);
 }

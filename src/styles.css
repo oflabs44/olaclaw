@@ -1,0 +1,245 @@
+@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource-variable/geist-mono";
+@import "tailwindcss";
+@import "./tokens.css";
+@import "streamdown/styles.css";
+/* Streamdown and its code plugin style themselves with Tailwind classes. */
+@source "../node_modules/streamdown/dist/*.js";
+@source "../node_modules/@streamdown/code/dist/*.js";
+
+/* The theme is on <html data-theme> before first paint (see routes/__root.tsx). */
+@custom-variant dark ([data-theme="dark"] &);
+@custom-variant touch (@media (pointer: coarse));
+
+/* Tokens exposed to Tailwind utilities, as in Bureau's styles.css; values live in tokens.css. */
+@theme inline {
+	/* The shadcn names Streamdown's own classes use, mapped onto the Bureau tokens. */
+	--color-border: var(--line);
+	--color-muted: var(--wash);
+	--color-muted-foreground: var(--ink-soft);
+	--color-background: var(--sheet);
+	--color-foreground: var(--ink);
+	--font-sans: var(--font-sans);
+	--font-mono: var(--font-mono);
+	--color-*: initial;
+	--color-paper: var(--paper);
+	--color-sheet: var(--sheet);
+	--color-float: var(--float);
+	--color-float-line: var(--float-line);
+	--color-ink: var(--ink);
+	--color-ink-soft: var(--ink-soft);
+	--color-ink-faint: var(--ink-faint);
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+	--color-wash-soft: var(--wash-soft);
+	--color-wash: var(--wash);
+	--color-wash-strong: var(--wash-strong);
+	--color-scrim: var(--scrim);
+	--color-primary: var(--primary);
+	--color-primary-wash: var(--primary-wash);
+	--color-on-primary: var(--on-primary);
+	--color-accent: var(--accent);
+	--color-info: var(--info);
+	--color-danger: var(--danger);
+	--color-star: var(--star);
+	--color-star-wash: var(--star-wash);
+	--color-chrome: var(--chrome);
+	--color-chrome-text: var(--chrome-text);
+	--color-chrome-muted: var(--chrome-muted);
+	--color-white: #fff;
+	--color-transparent: transparent;
+	--text-*: initial;
+	--text-xs: var(--text-xs);
+	--text-sm: var(--text-sm);
+	--text-md: var(--text-md);
+	--text-lg: var(--text-lg);
+	--text-xl: var(--text-xl);
+	--text-2xl: var(--text-2xl);
+	--default-transition-duration: var(--duration);
+	--default-transition-timing-function: var(--ease);
+	--radius-*: initial;
+	--radius: var(--radius);
+	--radius-sm: var(--radius-sm);
+	--radius-card: var(--card-radius);
+	--shadow-*: initial;
+	--shadow-float: var(--float-shadow);
+	--inset-shadow-chip: inset 0 1px 0 color-mix(in oklab, white 12%, transparent),
+		inset 0 -1px 0 color-mix(in oklab, black 8%, transparent);
+	--inset-shadow-chip-quiet: inset 0 1px 0 color-mix(in oklab, white 9%, transparent),
+		inset 0 -1px 0 color-mix(in oklab, var(--ink) 5%, transparent);
+}
+
+/* Phones (≤ 860px) get their own layout; `wide:` is the desktop workspace. */
+@theme {
+	--breakpoint-wide: 861px;
+
+	--animate-stamp: stamp 1.1s ease-in-out infinite;
+	--animate-stamp-fast: stamp 0.9s ease-in-out infinite;
+	--animate-shimmer: shimmer 1.8s linear infinite;
+	--animate-turn: turn 2.4s linear infinite;
+
+	@keyframes stamp {
+		50% {
+			transform: scale(0.5);
+			opacity: 0.6;
+		}
+	}
+	@keyframes shimmer {
+		to {
+			background-position: -200% 0;
+		}
+	}
+	@keyframes turn {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+}
+
+/* Bureau's top-lit gradient chips. Each is a three-stop gradient of color-mix() stops, which does
+   not read legibly as an inline utility. */
+@utility chip-primary {
+	background: linear-gradient(
+		to bottom,
+		color-mix(in oklab, var(--primary) 96%, white),
+		var(--primary) 55%,
+		color-mix(in oklab, var(--primary) 96%, black)
+	);
+	box-shadow: var(--inset-shadow-chip);
+	color: var(--on-primary);
+
+	&:hover:not([data-disabled]) {
+		background: linear-gradient(
+			to bottom,
+			color-mix(in oklab, var(--primary) 90%, white),
+			color-mix(in oklab, var(--primary) 94%, white) 55%,
+			color-mix(in oklab, var(--primary) 97%, black)
+		);
+	}
+}
+
+@utility chip-quiet {
+	background: linear-gradient(
+		to bottom,
+		color-mix(in oklab, var(--ink) 6%, var(--sheet)),
+		color-mix(in oklab, var(--ink) 8%, var(--sheet)) 60%,
+		color-mix(in oklab, var(--ink) 10%, var(--sheet))
+	);
+	box-shadow: var(--inset-shadow-chip-quiet);
+	color: var(--ink);
+
+	&:hover:not([data-disabled]) {
+		background: linear-gradient(
+			to bottom,
+			color-mix(in oklab, var(--ink) 10%, var(--sheet)),
+			color-mix(in oklab, var(--ink) 12%, var(--sheet)) 60%,
+			color-mix(in oklab, var(--ink) 14%, var(--sheet))
+		);
+	}
+}
+
+@utility chip-respond {
+	background: linear-gradient(
+		to bottom,
+		color-mix(in oklab, var(--accent) 96%, white),
+		var(--accent) 55%,
+		color-mix(in oklab, var(--accent) 96%, black)
+	);
+	box-shadow: var(--inset-shadow-chip);
+	color: var(--paper);
+
+	&:hover:not([data-disabled]) {
+		background: linear-gradient(
+			to bottom,
+			color-mix(in oklab, var(--accent) 90%, white),
+			color-mix(in oklab, var(--accent) 94%, white) 55%,
+			color-mix(in oklab, var(--accent) 97%, black)
+		);
+	}
+}
+
+/* The chrome is always dark, so controls on it take the dark theme's ink and sheet. */
+@utility on-chrome {
+	--ink: var(--chrome-text);
+	--sheet: oklch(0.205 0.005 264);
+	--ink-soft: color-mix(in oklab, var(--ink) 64%, transparent);
+	--ink-faint: color-mix(in oklab, var(--ink) 42%, transparent);
+	color: var(--chrome-text);
+}
+
+/* The streaming reasoning label: ink-soft text with a light sweeping through it. */
+@utility text-shimmer {
+	background: linear-gradient(
+			90deg,
+			var(--ink-soft) 0%,
+			var(--ink-faint) 40%,
+			var(--ink) 50%,
+			var(--ink-faint) 60%,
+			var(--ink-soft) 100%
+		)
+		0 0 / 200% 100%;
+	background-clip: text;
+	color: transparent;
+	animation: var(--animate-shimmer);
+}
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	font-family: var(--font-sans);
+	font-size: var(--text-md);
+	line-height: var(--leading);
+	color: var(--ink);
+	background: var(--paper);
+	font-weight: 400;
+	font-synthesis-weight: none;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+/* Bureau's grain: a barely-there print texture over everything. */
+body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	pointer-events: none;
+	background-image: url("/grain.svg");
+	opacity: 0.018;
+}
+
+::selection {
+	background-color: color-mix(in oklab, var(--ink) 14%, transparent);
+}
+
+/* One focus treatment everywhere, so components carry no ring of their own. */
+@layer base {
+	:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 2px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* Tailwind's bare `border` utility defaults to currentColor; Streamdown's code blocks rely on a
+   themed default, so every border starts as a hairline. */
+@layer base {
+	*,
+	::before,
+	::after {
+		border-color: var(--line);
+	}
+}

@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>olaclaw – Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Bureau's paper-and-ink tokens (apps/web/src/tokens.css): paper canvas, sheet surfaces,
+   one ink at alphas, azure primary, green only for positive actions. */
+:root, [data-theme="light"] {
+	--paper: #fafafa;
+	--sheet: #ffffff;
+	--ink: #18181b;
+	--accent: oklch(0.52 0.12 152);
+	--info: oklch(0.52 0.13 245);
+	--danger: oklch(0.55 0.18 25);
+	--star: oklch(0.64 0.13 75);
+	--primary: #0275de;
+	--on-primary: oklch(0.985 0.002 250);
+	--float: var(--sheet);
+	--float-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 32px -12px rgba(0, 0, 0, 0.18);
+	--chrome: oklch(0.168 0.004 264);
+	color-scheme: light;
+}
+[data-theme="dark"] {
+	--paper: oklch(0.168 0.004 264);
+	--sheet: oklch(0.205 0.005 264);
+	--ink: oklch(0.93 0.004 250);
+	--accent: oklch(0.8 0.13 152);
+	--info: oklch(0.76 0.12 245);
+	--danger: oklch(0.72 0.16 25);
+	--star: oklch(0.83 0.13 80);
+	--primary: oklch(0.72 0.15 252);
+	--on-primary: oklch(0.17 0.03 251);
+	--float: color-mix(in oklab, white 4%, var(--sheet));
+	--float-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+	--chrome: oklch(0.13 0.004 264);
+	color-scheme: dark;
+}
+:root {
+	--ink-soft: color-mix(in oklab, var(--ink) 64%, transparent);
+	--ink-faint: color-mix(in oklab, var(--ink) 42%, transparent);
+	--line: color-mix(in oklab, var(--ink) 11%, transparent);
+	--line-strong: color-mix(in oklab, var(--ink) 22%, transparent);
+	--float-line: color-mix(in oklab, var(--ink) 14%, transparent);
+	--wash-soft: color-mix(in oklab, var(--ink) 3%, transparent);
+	--wash: color-mix(in oklab, var(--ink) 5%, transparent);
+	--wash-strong: color-mix(in oklab, var(--ink) 9%, transparent);
+	--primary-wash: color-mix(in oklab, var(--primary) 12%, transparent);
+	--star-wash: color-mix(in oklab, var(--star) 14%, transparent);
+	--chrome-text: oklch(0.93 0.004 250);
+	--chrome-muted: oklch(0.7 0.004 250);
+	--font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+	--text-sm: 12px;
+	--text-md: 14px;
+	--text-lg: 15.5px;
+	--radius: 8px;
+	--radius-sm: 5px;
+	--card-radius: 12px;
+	--ease: cubic-bezier(0.22, 1, 0.36, 1);
+	--duration: 180ms;
+	--inset-chip: inset 0 1px 0 color-mix(in oklab, white 12%, transparent), inset 0 -1px 0 color-mix(in oklab, black 8%, transparent);
+	--inset-chip-quiet: inset 0 1px 0 color-mix(in oklab, white 9%, transparent), inset 0 -1px 0 color-mix(in oklab, var(--ink) 5%, transparent);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+/* Bureau's grain: barely-there print texture over everything. */
+body::before { content: ""; position: fixed; inset: 0; z-index: 5; pointer-events: none; background-image: url('grain.svg'); opacity: 0.018; }
+body {
+	margin: 0;
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	height: 100dvh;
+	overflow: hidden;
+	font: 400 var(--text-md)/1.5 var(--font-sans);
+	font-synthesis-weight: none;
+	color: var(--ink);
+	background: var(--chrome);
+	-webkit-font-smoothing: antialiased;
+}
+button, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+h1, h2, h3, h4, p, ul, ol, pre { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+svg { width: 1.1rem; height: 1.1rem; flex: none; }
+[hidden] { display: none !important; }
+.only-narrow, .grabber { display: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.pulse { display: inline-block; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--primary); animation: stamp 1.1s ease-in-out infinite; }
+.ghost, .outlined, .chip-primary, .chip-respond { display: inline-flex; height: 32px; align-items: center; justify-content: center; gap: 0.5rem; border: 0; border-radius: 999px; padding: 0 14px; font-size: 13.5px; font-weight: 500; white-space: nowrap; transition: background-color var(--duration) var(--ease), color var(--duration) var(--ease); }
+.ghost { background: transparent; color: var(--ink-soft); }
+.ghost:hover { background: var(--wash); color: var(--ink); }
+.ghost.icon { width: 32px; padding: 0; }
+.outlined { background: linear-gradient(to bottom, color-mix(in oklab, var(--ink) 6%, var(--sheet)), color-mix(in oklab, var(--ink) 8%, var(--sheet)) 60%, color-mix(in oklab, var(--ink) 10%, var(--sheet))); box-shadow: var(--inset-chip-quiet); color: var(--ink); }
+.outlined:hover { background: linear-gradient(to bottom, color-mix(in oklab, var(--ink) 10%, var(--sheet)), color-mix(in oklab, var(--ink) 12%, var(--sheet)) 60%, color-mix(in oklab, var(--ink) 14%, var(--sheet))); }
+.chip-primary { background: linear-gradient(to bottom, color-mix(in oklab, var(--primary) 96%, white), var(--primary) 55%, color-mix(in oklab, var(--primary) 96%, black)); box-shadow: var(--inset-chip); color: var(--on-primary); }
+.chip-primary:hover { background: linear-gradient(to bottom, color-mix(in oklab, var(--primary) 90%, white), color-mix(in oklab, var(--primary) 94%, white) 55%, color-mix(in oklab, var(--primary) 97%, black)); }
+.chip-respond { background: linear-gradient(to bottom, color-mix(in oklab, var(--accent) 96%, white), var(--accent) 55%, color-mix(in oklab, var(--accent) 96%, black)); box-shadow: var(--inset-chip); color: var(--paper); }
+.chip-respond:hover { background: linear-gradient(to bottom, color-mix(in oklab, var(--accent) 90%, white), color-mix(in oklab, var(--accent) 94%, white) 55%, color-mix(in oklab, var(--accent) 97%, black)); }
+
+/* The chrome: one dark strip, nothing else touches the edges. */
+.chrome { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.75rem; padding: 0.45rem 0.9rem; padding-top: max(0.45rem, env(safe-area-inset-top)); color: var(--chrome-text); }
+.chrome-side { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.chrome-side.end { justify-content: flex-end; }
+.chrome .ghost { color: var(--chrome-muted); }
+.chrome .ghost:hover { background: rgb(255 255 255 / 0.08); color: var(--chrome-text); }
+.chat-head .ghost[aria-pressed="true"] { color: var(--ink); }
+.wordmark { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; letter-spacing: -0.01em; }
+.mark { width: 1.3rem; height: 1.3rem; border-radius: 6px; background: linear-gradient(to bottom, color-mix(in oklab, #0275de 96%, white), #0275de 55%, color-mix(in oklab, #0275de 96%, black)); box-shadow: var(--inset-chip); display: grid; place-items: center; }
+.mark svg { width: 0.85rem; height: 0.85rem; color: #fff; }
+body[data-state="running"] .mark svg { animation: turn 2.4s linear infinite; }
+.chrome .spacer { flex: 1; }
+/* Bureau's omni trigger: a quiet chip, at least 280px, that says where you are and is the way in.
+   The chrome is always dark, so the chip takes the dark theme's ink and sheet there. */
+.chrome { --ink: oklch(0.93 0.004 250); --sheet: oklch(0.205 0.005 264); --ink-soft: color-mix(in oklab, var(--ink) 64%, transparent); --ink-faint: color-mix(in oklab, var(--ink) 42%, transparent); }
+.omni { justify-self: center; min-width: 280px; max-width: 100%; justify-content: flex-start; padding: 0 8px 0 14px; }
+.omni-icon { width: 17px; height: 17px; color: #4c9cf1; }
+.omni-app { font-size: 13px; font-weight: 500; }
+.omni-sep { color: var(--ink-faint); font-size: 12px; }
+.omni-view { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: 13px; font-weight: 400; color: var(--ink-soft); }
+.omni-key { display: inline-flex; align-items: center; gap: 1px; margin-left: 6px; padding: 0 6px; font: 10.5px/1 var(--font-mono); color: var(--ink-faint); }
+.omni-key svg { width: 12px; height: 12px; }
+.avatar { width: 1.7rem; height: 1.7rem; border-radius: 50%; background: linear-gradient(135deg, #d9a06b, #8d5a3a); border: 0; margin-left: 0.25rem; }
+
+/* The stage: a light canvas with up to three panes on it. The chat is a card. */
+.stage { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; min-height: 0; background: var(--paper); border-radius: var(--card-radius) var(--card-radius) 0 0; margin: 0 6px; padding: 10px 10px 0; gap: 10px; transition: grid-template-columns var(--duration) var(--ease); }
+.pane { width: 15.5rem; min-width: 0; overflow: hidden; transition: width var(--duration) var(--ease), opacity var(--duration) var(--ease); }
+body[data-left="closed"] .pane.left, body[data-right="closed"] .pane.right { width: 0; opacity: 0; }
+.pane-inner { width: 15.5rem; height: 100%; display: flex; flex-direction: column; gap: 1.2rem; padding: 0.6rem 0.4rem 0.9rem; overflow-y: auto; }
+.pane.right .pane-inner { width: 17rem; }
+.pane.right { width: 17rem; }
+.card { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; background: var(--sheet); border: 1px solid var(--line); border-bottom: 0; border-radius: var(--card-radius) var(--card-radius) 0 0; box-shadow: var(--float-shadow); position: relative; }
+
+/* Left pane: where you are. */
+.nav-group { display: grid; gap: 0.1rem; }
+.nav-label { padding: 0.3rem 0.7rem; font-size: 0.8rem; font-weight: 600; color: var(--ink-faint); }
+.nav a, .nav-group > button { display: flex; align-items: center; gap: 0.55rem; width: 100%; padding: 0.42rem 0.7rem; border: 0; border-radius: 8px; background: transparent; text-decoration: none; text-align: left; font-weight: 500; font-size: 0.92rem; color: var(--ink); }
+.nav a:hover { background: var(--wash); }
+.nav a[aria-current="page"] { background: var(--wash-strong); font-weight: 500; }
+.nav a svg { color: var(--ink-soft); }
+.chats a { padding-left: 2.35rem; font-weight: 400; color: var(--ink-soft); }
+.chats a[aria-current="page"] { color: var(--ink); }
+.new-chat { margin: 0 0.4rem; justify-content: center; }
+.pane-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding: 0 0.5rem; }
+.status { font-size: 0.85rem; color: var(--ink-soft); display: flex; align-items: center; gap: 0.45rem; }
+.status::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--accent); }
+.when-dark { display: none; }
+[data-theme="dark"] .when-dark { display: block; }
+[data-theme="dark"] .when-light { display: none; }
+
+/* Card header. */
+.chat-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--line); }
+.chat-head h1 { padding-left: 0.3rem; }
+.chat-head h1 { font-size: var(--text-lg); font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-head .live { display: none; align-items: center; gap: 0.45rem; font-size: 0.85rem; font-weight: 600; color: var(--primary); }
+body[data-state="running"] .chat-head .live { display: inline-flex; }
+.context { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--ink-soft); }
+.context svg { width: 1.2rem; height: 1.2rem; transform: rotate(-90deg); }
+.context circle { fill: none; stroke-width: 3; }
+.context circle:first-child { stroke: var(--line); }
+.context circle:last-child { stroke: var(--primary); stroke-linecap: round; stroke-dasharray: 100; }
+
+/* Conversation. */
+[data-conversation] { overflow-y: auto; padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 1rem; }
+.column { max-width: 44rem; margin-inline: auto; }
+[data-transcript] > * + * { margin-top: 1.4rem; }
+.msg-user { display: flex; justify-content: flex-end; }
+.msg-user p { max-width: 78%; padding: 0.6rem 0.9rem; border-radius: var(--radius) var(--radius) 4px var(--radius); background: var(--wash); white-space: pre-wrap; }
+.msg-agent { display: grid; gap: 0.35rem; }
+.answer { white-space: pre-wrap; font-size: var(--text-lg); }
+.answer:empty { display: none; }
+[data-live] .answer::after { content: ""; display: inline-block; width: 0.45em; height: 0.45em; margin-left: 0.3em; border-radius: 50%; background: var(--primary); animation: stamp 0.9s ease-in-out infinite; }
+.stopped { display: none; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft); }
+[data-stopped] .stopped { display: block; }
+.actions { display: flex; gap: 0.2rem; opacity: 0; transition: opacity 0.15s; }
+.msg-agent:hover .actions, .msg-agent:focus-within .actions { opacity: 1; }
+[data-live] .actions { display: none; }
+
+/* Reasoning and tools are quiet rows, not boxes: text with a chevron, a wash on hover. */
+details { border: 0; border-radius: var(--radius); background: transparent; }
+summary { display: flex; align-items: center; gap: 0.5rem; width: fit-content; max-width: 100%; margin-left: -0.6rem; padding: 0.3rem 0.6rem; border-radius: 999px; list-style: none; cursor: pointer; font-size: 13px; color: var(--ink-soft); user-select: none; transition: background-color var(--duration) var(--ease); }
+summary:hover { background: var(--wash); color: var(--ink); }
+summary::-webkit-details-marker { display: none; }
+summary .chevron { width: 0.95rem; height: 0.95rem; opacity: 0.6; transition: transform var(--duration) var(--ease); }
+details[open] summary .chevron { transform: rotate(180deg); }
+.reasoning p { margin: 0.2rem 0 0.3rem; padding-left: 0.95rem; border-left: 2px solid var(--line); font-size: 13.5px; color: var(--ink-soft); }
+.reasoning[data-streaming] [data-reasoning-label] { background: linear-gradient(90deg, var(--ink-soft) 0%, var(--ink-faint) 40%, var(--ink) 50%, var(--ink-faint) 60%, var(--ink-soft) 100%) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.8s linear infinite; }
+.tool summary { color: var(--ink); }
+.tool .dot { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--ink-faint); }
+.tool[data-status="running"] .dot { background: var(--primary); animation: stamp 0.9s ease-in-out infinite; }
+.tool[data-status="done"] .dot { background: var(--accent); }
+.badge { padding: 0 0.4rem; border-radius: var(--radius-sm); background: var(--wash); font-size: 11.5px; font-weight: 500; color: var(--ink-soft); }
+.tool[data-status="running"] .badge { background: var(--primary-wash); color: var(--primary); }
+.tool-body { display: grid; gap: 0.6rem; margin: 0.3rem 0 0.4rem; padding-left: 0.95rem; border-left: 2px solid var(--line); }
+.tool-body h4 { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); margin-bottom: 0.25rem; }
+.tool-body pre { padding: 0.5rem 0.65rem; border-radius: 8px; background: var(--wash); font: 12px/1.5 var(--font-mono); white-space: pre-wrap; }
+
+.approval { display: grid; gap: 0.55rem; margin-top: 0.3rem; padding: 0.8rem 0.9rem; border-radius: var(--radius); background: var(--star-wash); }
+.approval p { font-weight: 600; }
+.approval q { display: block; font-weight: 400; color: var(--ink-soft); }
+.approval div { display: flex; gap: 0.5rem; }
+
+.approval .result { display: none; font-weight: 600; }
+.approval[data-state="allowed"], .approval[data-state="denied"] { background: var(--wash-soft); }
+.approval[data-state="allowed"] div, .approval[data-state="denied"] div { display: none; }
+.approval[data-state="allowed"] .result.allowed { display: block; color: var(--accent); }
+.approval[data-state="denied"] .result.denied { display: block; color: var(--ink-soft); }
+
+[data-jump] { position: absolute; left: 50%; bottom: 11.5rem; transform: translateX(-50%); z-index: 1; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0.3rem 0.8rem 0.3rem 0.55rem; background: var(--sheet); box-shadow: var(--float-shadow); font-size: 0.86rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.3rem; }
+
+/* Composer. */
+.bottom { padding: 0.4rem clamp(1rem, 4vw, 2.5rem) 1rem; }
+[data-suggestions] { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+[data-suggestions] button { height: 28px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 0 12px; background: var(--sheet); font-size: 13px; color: var(--ink-soft); }
+[data-suggestions] button:hover { color: var(--ink); background: var(--wash); }
+[data-queue] { margin-bottom: 0.5rem; background: var(--wash-soft); padding: 0.2rem 0.5rem; }
+[data-queue] summary { margin-left: 0; }
+[data-queue] summary { font-weight: 600; color: var(--ink); }
+[data-queue] li { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.8rem; border-top: 1px solid var(--line); font-size: 0.92rem; }
+[data-queue] li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-queue] li button { opacity: 0; }
+[data-queue] li:hover button, [data-queue] li:focus-within button { opacity: 1; }
+[data-composer] { display: grid; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--sheet); box-shadow: var(--float-shadow); transition: border-color 0.15s, box-shadow 0.15s; }
+[data-composer]:focus-within { border-color: var(--primary); box-shadow: var(--float-shadow), 0 0 0 3px var(--primary-wash); }
+textarea { border: 0; resize: none; padding: 0.8rem 1rem 0.3rem; background: transparent; font-size: 0.98rem; field-sizing: content; min-height: 2.3rem; max-height: 11rem; }
+textarea::placeholder { color: var(--ink-faint); }
+textarea:focus { outline: none; }
+.toolbar { display: flex; align-items: center; gap: 0.15rem; padding: 0.3rem 0.5rem 0.5rem; }
+.toolbar .spacer { flex: 1; }
+.model { height: 32px; border: 0; border-radius: 999px; padding: 0 12px; background: transparent; color: var(--ink-soft); font-size: 13.5px; font-weight: 500; appearance: none; }
+.model:hover { background: var(--wash); color: var(--ink); }
+[data-submit] { width: 32px; padding: 0; margin-left: 0.3rem; }
+[data-submit] .when-running { display: none; }
+body[data-state="running"] [data-submit] { background: var(--ink); box-shadow: none; color: var(--paper); }
+body[data-state="running"] [data-submit] .when-running { display: block; }
+body[data-state="running"] [data-submit] .when-idle { display: none; }
+.hint { margin: 0.45rem 0 0 0.3rem; font-size: 0.8rem; color: var(--ink-faint); }
+body[data-state="running"] .hint .when-idle { display: none; }
+body[data-state="idle"] .hint .when-running { display: none; }
+
+/* Right pane: what the assistant is doing without you. */
+.now h2 { font-size: 0.95rem; font-weight: 600; padding: 0.3rem 0.5rem; }
+.now h3 { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--ink-faint); padding: 0 0.5rem 0.4rem; }
+.now section { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.4rem 0.3rem; }
+.now li { padding: 0.4rem 0.5rem; display: grid; gap: 0.05rem; font-size: 0.9rem; }
+.now li + li { border-top: 1px solid var(--line); }
+.now small { color: var(--ink-soft); font-size: 0.82rem; }
+.now .work { display: flex; align-items: center; gap: 0.5rem; }
+.now .approval { margin: 0 0.1rem 0.3rem; padding: 0.65rem 0.75rem; }
+.now .approval p { font-size: 0.9rem; }
+
+@keyframes stamp { 50% { transform: scale(0.5); opacity: 0.6; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes turn { to { transform: rotate(360deg); } }
+
+/* Phones get their own layout: no chrome, the chat full-bleed under an app bar, the chat list as
+   a drawer from the left, and Now as a bottom sheet within reach of a thumb. */
+@media (max-width: 860px) {
+	.chrome, .only-wide, .context, .hint { display: none; }
+	.omni { min-width: 0; }
+	.only-narrow { display: block; }
+	body { grid-template-rows: minmax(0, 1fr); background: var(--paper); }
+	.stage { grid-template-columns: minmax(0, 1fr); margin: 0; padding: 0; border-radius: 0; gap: 0; }
+	.card { border: 0; border-radius: 0; box-shadow: none; }
+	.chat-head { padding: 0.35rem 0.5rem; padding-top: max(0.35rem, env(safe-area-inset-top)); background: var(--paper); border-bottom: 1px solid var(--line); }
+	.chat-head h1 { text-align: center; font-size: 16px; }
+	.chat-head .live { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); font-size: 11.5px; }
+	.chat-head { position: relative; }
+	.chat-head .ghost { color: var(--ink); }
+	[data-toggle-right] { position: relative; }
+	[data-toggle-right]::after { content: ""; position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--star); box-shadow: 0 0 0 2px var(--paper); }
+	.pane { position: fixed; z-index: 3; background: var(--paper); transition: transform var(--duration) var(--ease); box-shadow: 0 0 0 100vmax transparent; opacity: 1 !important; }
+	.pane.left { top: 0; bottom: 0; left: 0; width: min(19rem, 84vw) !important; transform: translateX(-104%); }
+	.pane.right { left: 0; right: 0; bottom: 0; width: auto !important; height: min(82dvh, 40rem); border-radius: 16px 16px 0 0; transform: translateY(105%); }
+	body[data-left="open"] .pane.left { transform: none; box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.4); }
+	body[data-right="open"] .pane.right { transform: none; box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.4); }
+	.pane-inner { width: 100% !important; padding: max(1rem, env(safe-area-inset-top)) 0.8rem max(1rem, env(safe-area-inset-bottom)); }
+	.pane.right .pane-inner { padding-top: 0.5rem; }
+	.grabber { display: block; width: 2.4rem; height: 4px; margin: 0.2rem auto 0.4rem; border-radius: 999px; background: var(--line-strong); }
+	.now h2 { text-align: center; }
+	[data-conversation] { padding: 1rem 1rem 0.75rem; }
+	[data-transcript] > * + * { margin-top: 1.1rem; }
+	.msg-user p { max-width: 88%; }
+	.answer { font-size: 16px; }
+	.actions { opacity: 1; }
+	[data-jump] { bottom: 8rem; }
+	[data-suggestions] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -1rem 0.5rem; padding: 0 1rem; }
+	[data-suggestions] button { flex: none; }
+	.bottom { padding: 0.3rem 0.75rem max(0.75rem, env(safe-area-inset-bottom)); }
+	/* 16px keeps iOS from zooming into the field. */
+	textarea { font-size: 16px; padding: 0.75rem 0.9rem 0.3rem; }
+	.toolbar { padding: 0.2rem 0.4rem 0.4rem; }
+}
+@media (pointer: coarse) {
+	.ghost, .outlined, .chip-primary, .chip-respond, .model, [data-submit] { height: 40px; }
+	.ghost.icon, [data-submit] { width: 40px; }
+	summary { min-height: 36px; }
+	.nav a, .nav-group > button { min-height: 44px; }
+	.now li { padding: 0.55rem 0.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body data-left="open" data-right="open">
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+	<symbol id="hi-menu" viewBox="0 0 24 24" fill="none"><path d="M4 5L20 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 12L20 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 19L20 19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-activity" viewBox="0 0 24 24" fill="none"><path d="M4.31802 19.682C3 18.364 3 16.2426 3 12C3 7.75736 3 5.63604 4.31802 4.31802C5.63604 3 7.75736 3 12 3C16.2426 3 18.364 3 19.682 4.31802C21 5.63604 21 7.75736 21 12C21 16.2426 21 18.364 19.682 19.682C18.364 21 16.2426 21 12 21C7.75736 21 5.63604 21 4.31802 19.682Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M7 14L9.79289 11.2071C10.1834 10.8166 10.8166 10.8166 11.2071 11.2071L12.7929 12.7929C13.1834 13.1834 13.8166 13.1834 14.2071 12.7929L17 10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-send" viewBox="0 0 24 24" fill="none"><path d="M17.9998 15C17.9998 15 13.5809 9.00001 11.9998 9C10.4187 8.99999 5.99985 15 5.99985 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-stop" viewBox="0 0 24 24" fill="none"><path d="M4 12C4 8.72077 4 7.08116 4.81382 5.91891C5.1149 5.48891 5.48891 5.1149 5.91891 4.81382C7.08116 4 8.72077 4 12 4C15.2792 4 16.9188 4 18.0811 4.81382C18.5111 5.1149 18.8851 5.48891 19.1862 5.91891C20 7.08116 20 8.72077 20 12C20 15.2792 20 16.9188 19.1862 18.0811C18.8851 18.5111 18.5111 18.8851 18.0811 19.1862C16.9188 20 15.2792 20 12 20C8.72077 20 7.08116 20 5.91891 19.1862C5.48891 18.8851 5.1149 18.5111 4.81382 18.0811C4 16.9188 4 15.2792 4 12Z" stroke="currentColor" stroke-width="1.5"/></symbol>
+	<symbol id="hi-attach" viewBox="0 0 24 24" fill="none"><path d="M5.82338 12L4.27922 10.4558C2.57359 8.75022 2.57359 5.98485 4.27922 4.27922C5.98485 2.57359 8.75022 2.57359 10.4558 4.27922L19.7208 13.5442C21.4264 15.2498 21.4264 18.0152 19.7208 19.7208C18.0152 21.4264 15.2498 21.4264 13.5442 19.7208L10.0698 16.2464C9.00379 15.1804 9.00379 13.4521 10.0698 12.386C11.1358 11.32 12.8642 11.32 13.9302 12.386L15.8604 14.3162" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-mic" viewBox="0 0 24 24" fill="none"><path d="M7 6.5C7 4.01472 9.01472 2 11.5 2C13.9853 2 16 4.01472 16 6.5V11.5C16 13.9853 13.9853 16 11.5 16C9.01472 16 7 13.9853 7 11.5V6.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11.5 19H11.0828C7.57267 19 4.57706 16.4623 4 13M11.5 19H11.9172C15.4273 19 18.4229 16.4623 19 13M11.5 19V22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-copy" viewBox="0 0 24 24" fill="none"><path d="M7.5 14.5C7.5 11.2002 7.5 9.55025 8.52513 8.52513C9.55025 7.5 11.2002 7.5 14.5 7.5C17.7998 7.5 19.4497 7.5 20.4749 8.52513C21.5 9.55025 21.5 11.2002 21.5 14.5C21.5 17.7998 21.5 19.4497 20.4749 20.4749C19.4497 21.5 17.7998 21.5 14.5 21.5C11.2002 21.5 9.55025 21.5 8.52513 20.4749C7.5 19.4497 7.5 17.7998 7.5 14.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M7.5 16.5C6.10355 16.5 5.40533 16.5 4.84402 16.3036C3.83866 15.9518 3.0482 15.1613 2.69641 14.156C2.5 13.5947 2.5 12.8964 2.5 11.5V9.5C2.5 6.20017 2.5 4.55025 3.52513 3.52513C4.55025 2.5 6.20017 2.5 9.5 2.5H11.5C12.8964 2.5 13.5947 2.5 14.156 2.69641C15.1613 3.0482 15.9518 3.83866 16.3036 4.84402C16.5 5.40533 16.5 6.10355 16.5 7.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-retry" viewBox="0 0 24 24" fill="none"><path d="M20.0092 2V5.13219C20.0092 5.42605 19.6418 5.55908 19.4537 5.33333C17.6226 3.2875 14.9617 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-chevron" viewBox="0 0 24 24" fill="none"><path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-moon" viewBox="0 0 24 24" fill="none"><path d="M21.5 14.0784C20.3003 14.7189 18.9301 15.0821 17.4751 15.0821C12.7491 15.0821 8.91792 11.2509 8.91792 6.52485C8.91792 5.06986 9.28105 3.69968 9.92163 2.5C5.66765 3.49698 2.5 7.31513 2.5 11.8731C2.5 17.1899 6.8101 21.5 12.1269 21.5C16.6849 21.5 20.503 18.3324 21.5 14.0784Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-sun" viewBox="0 0 24 24" fill="none"><path d="M17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 2V3.5M12 20.5V22M19.0708 19.0713L18.0101 18.0106M5.98926 5.98926L4.9286 4.9286M22 12H20.5M3.5 12H2M19.0713 4.92871L18.0106 5.98937M5.98975 18.0107L4.92909 19.0714" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-home" viewBox="0 0 24 24" fill="none"><path d="M3 11.9896V14.5C3 17.7998 3 19.4497 4.02513 20.4749C5.05025 21.5 6.70017 21.5 10 21.5H14C17.2998 21.5 18.9497 21.5 19.9749 20.4749C21 19.4497 21 17.7998 21 14.5V11.9896C21 10.3083 21 9.46773 20.6441 8.74005C20.2882 8.01237 19.6247 7.49628 18.2976 6.46411L16.2976 4.90855C14.2331 3.30285 13.2009 2.5 12 2.5C10.7991 2.5 9.76689 3.30285 7.70242 4.90855L5.70241 6.46411C4.37533 7.49628 3.71179 8.01237 3.3559 8.74005C3 9.46773 3 10.3083 3 11.9896Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-chat" viewBox="0 0 24 24" fill="none"><path d="M21.5 12C21.5 17.2467 17.2467 21.5 12 21.5C10.3719 21.5 8.8394 21.0904 7.5 20.3687C5.63177 19.362 4.37462 20.2979 3.26592 20.4658C3.09774 20.4913 2.93024 20.4302 2.80997 20.31C2.62741 20.1274 2.59266 19.8451 2.6935 19.6074C3.12865 18.5818 3.5282 16.6382 2.98341 15C2.6698 14.057 2.5 13.0483 2.5 12C2.5 6.75329 6.75329 2.5 12 2.5C17.2467 2.5 21.5 6.75329 21.5 12Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12.1257 12H12.0007M8.125 12H8M16.125 12H16M12.2507 12C12.2507 12.1381 12.1388 12.25 12.0007 12.25C11.8627 12.25 11.7507 12.1381 11.7507 12C11.7507 11.8619 11.8627 11.75 12.0007 11.75C12.1388 11.75 12.2507 11.8619 12.2507 12ZM8.25 12C8.25 12.1381 8.13807 12.25 8 12.25C7.86193 12.25 7.75 12.1381 7.75 12C7.75 11.8619 7.86193 11.75 8 11.75C8.13807 11.75 8.25 11.8619 8.25 12ZM16.25 12C16.25 12.1381 16.1381 12.25 16 12.25C15.8619 12.25 15.75 12.1381 15.75 12C15.75 11.8619 15.8619 11.75 16 11.75C16.1381 11.75 16.25 11.8619 16.25 12Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-calendar" viewBox="0 0 24 24" fill="none"><path d="M16 2V6M8 2V6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 4H11C7.22876 4 5.34315 4 4.17157 5.17157C3 6.34315 3 8.22876 3 12V14C3 17.7712 3 19.6569 4.17157 20.8284C5.34315 22 7.22876 22 11 22H13C16.7712 22 18.6569 22 19.8284 20.8284C21 19.6569 21 17.7712 21 14V12C21 8.22876 21 6.34315 19.8284 5.17157C18.6569 4 16.7712 4 13 4Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 10H21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12.1258 14H12.0008M12.1258 18H12.0008M7.625 14H7.5M7.625 18H7.5M16.625 14H16.5M12.2508 14C12.2508 14.1381 12.1389 14.25 12.0008 14.25C11.8628 14.25 11.7508 14.1381 11.7508 14C11.7508 13.8619 11.8628 13.75 12.0008 13.75C12.1389 13.75 12.2508 13.8619 12.2508 14ZM12.2508 18C12.2508 18.1381 12.1389 18.25 12.0008 18.25C11.8628 18.25 11.7508 18.1381 11.7508 18C11.7508 17.8619 11.8628 17.75 12.0008 17.75C12.1389 17.75 12.2508 17.8619 12.2508 18ZM7.75 14C7.75 14.1381 7.63807 14.25 7.5 14.25C7.36193 14.25 7.25 14.1381 7.25 14C7.25 13.8619 7.36193 13.75 7.5 13.75C7.63807 13.75 7.75 13.8619 7.75 14ZM7.75 18C7.75 18.1381 7.63807 18.25 7.5 18.25C7.36193 18.25 7.25 18.1381 7.25 18C7.25 17.8619 7.36193 17.75 7.5 17.75C7.63807 17.75 7.75 17.8619 7.75 18ZM16.75 14C16.75 14.1381 16.6381 14.25 16.5 14.25C16.3619 14.25 16.25 14.1381 16.25 14C16.25 13.8619 16.3619 13.75 16.5 13.75C16.6381 13.75 16.75 13.8619 16.75 14Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-brain" viewBox="0 0 24 24" fill="none"><path d="M15.1449 5.20762C14.5031 4.46785 13.5562 4 12.5 4C11.0033 4 9.72595 4.93951 9.22564 6.26097C8.85144 6.09327 8.43661 6 8 6C6.34315 6 5 7.34315 5 9C5 9.01673 5.00014 9.03343 5.00041 9.05009M15.1449 5.20762C15.5725 5.07274 16.0278 5 16.5 5C18.9853 5 21 7.01472 21 9.5C21 10.1296 20.8707 10.729 20.6372 11.273M15.1449 5.20762C13.7981 5.63239 12.7249 6.67345 12.2561 8C12.1435 8.31841 12.0658 8.65327 12.0275 9M9.05001 14C9.28164 15.1411 10.2905 16 11.5 16C11.7548 16 11.8823 16 11.9998 16.014C12.5855 16.0835 13.1107 16.4081 13.4348 16.9009C13.4999 16.9997 13.5569 17.1137 13.6708 17.3416L15 20M9.05001 14C9.01722 13.8384 9 13.6712 9 13.5C9 12.6822 9.39267 11.9561 9.99976 11.5M9.05001 14H4.5C3.11929 14 2 12.8807 2 11.5C2 10.1193 3.11929 9 4.5 9C4.67138 9 4.83873 9.01724 5.00041 9.05009M20.6372 11.273C20.2961 11.0985 19.9095 11 19.5 11C18.2905 11 17.2816 11.8589 17.05 13M20.6372 11.273C21.4462 11.687 22 12.5288 22 13.5C22 14.8807 20.8807 16 19.5 16C18.2904 16 17.4531 17.2082 17.8778 18.3408L18.5 20M5.00041 9.05009C5.01267 9.7988 5.2992 10.4808 5.76389 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-plus" viewBox="0 0 24 24" fill="none"><path d="M12 4V20M20 12H4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-clock" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 8V12L14 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-done" viewBox="0 0 24 24" fill="none"><path d="M22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 12.5L10.5 15L16 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-mail" viewBox="0 0 24 24" fill="none"><path d="M2 6L8.91302 9.91697C11.4616 11.361 12.5384 11.361 15.087 9.91697L22 6" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M2.01577 13.4756C2.08114 16.5412 2.11383 18.0739 3.24496 19.2094C4.37608 20.3448 5.95033 20.3843 9.09883 20.4634C11.0393 20.5122 12.9607 20.5122 14.9012 20.4634C18.0497 20.3843 19.6239 20.3448 20.7551 19.2094C21.8862 18.0739 21.9189 16.5412 21.9842 13.4756C22.0053 12.4899 22.0053 11.5101 21.9842 10.5244C21.9189 7.45886 21.8862 5.92609 20.7551 4.79066C19.6239 3.65523 18.0497 3.61568 14.9012 3.53657C12.9607 3.48781 11.0393 3.48781 9.09882 3.53656C5.95033 3.61566 4.37608 3.65521 3.24495 4.79065C2.11382 5.92608 2.08114 7.45885 2.01576 10.5244C1.99474 11.5101 1.99475 12.4899 2.01577 13.4756Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-idea" viewBox="0 0 24 24" fill="none"><path d="M8 16.4998C6.7725 15.4011 6 13.7768 6 11.9998C6 8.68605 8.68629 5.99976 12 5.99976C15.3137 5.99976 18 8.68605 18 11.9998C18 13.7768 17.2275 15.4011 16 16.4998" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M12 11.9998V16.4998" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M9.5 18.9998H14.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M10.5 21.4998H13.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3.5 11.9998H2.5M5.98438 5.97632L5.23438 5.23022M18.0195 5.97632L18.7695 5.23022M21.5 11.9998H20.5M12 2.49976V3.49976" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-close" viewBox="0 0 24 24" fill="none"><path d="M18 6L6.00081 17.9992M17.9992 18L6 6.00085" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-sidebar-left" viewBox="0 0 24 24" fill="none"><path d="M2 12C2 8.25027 2 6.3754 2.95491 5.06107C3.26331 4.6366 3.6366 4.26331 4.06107 3.95491C5.3754 3 7.25027 3 11 3H13C16.7497 3 18.6246 3 19.9389 3.95491C20.3634 4.26331 20.7367 4.6366 21.0451 5.06107C22 6.3754 22 8.25027 22 12C22 15.7497 22 17.6246 21.0451 18.9389C20.7367 19.3634 20.3634 19.7367 19.9389 20.0451C18.6246 21 16.7497 21 13 21H11C7.25027 21 5.3754 21 4.06107 20.0451C3.6366 19.7367 3.26331 19.3634 2.95491 18.9389C2 17.6246 2 15.7497 2 12Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M9.5 3.5L9.5 20.5" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M5 7C5 7 5.91421 7 6.5 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M5 11H6.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 10L15.7735 11.0572C15.2578 11.5016 15 11.7239 15 12C15 12.2761 15.2578 12.4984 15.7735 12.9428L17 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-sidebar-right" viewBox="0 0 24 24" fill="none"><path d="M22 12C22 8.25027 22 6.3754 21.0451 5.06107C20.7367 4.6366 20.3634 4.26331 19.9389 3.95491C18.6246 3 16.7497 3 13 3H11C7.25027 3 5.3754 3 4.06107 3.95491C3.6366 4.26331 3.26331 4.6366 2.95491 5.06107C2 6.3754 2 8.25027 2 12C2 15.7497 2 17.6246 2.95491 18.9389C3.26331 19.3634 3.6366 19.7367 4.06107 20.0451C5.3754 21 7.25027 21 11 21H13C16.7497 21 18.6246 21 19.9389 20.0451C20.3634 19.7367 20.7367 19.3634 21.0451 18.9389C22 17.6246 22 15.7497 22 12Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M14.5 3.5L14.5 20.5" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M19 7H17.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M19 11H17.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 10L9.22654 11.0572C9.74218 11.5016 10 11.7239 10 12C10 12.2761 9.74218 12.4984 9.22654 12.9428L8 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-search" viewBox="0 0 24 24" fill="none"><path d="M17 17L21 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-user" viewBox="0 0 24 24" fill="none"><path d="M20 21.0001C19.713 17.269 16.7289 14.3151 12.995 14.0662L12 13.9999C11.6446 14.0096 11.3134 14.0225 11.0008 14.0378C7.3 14.2192 4.28417 17.3057 4 21.0001" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><circle cx="12" cy="6.99988" r="4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+	<symbol id="hi-command" viewBox="0 0 24 24" fill="none"><path d="M15 9V15H9V9H15Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M15 15H18C19.6569 15 21 16.3431 21 18C21 19.6569 19.6569 21 18 21C16.3431 21 15 19.6569 15 18V15Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M9 15.002H6C4.34315 15.002 3 16.3451 3 18.002C3 19.6588 4.34315 21.002 6 21.002C7.65685 21.002 9 19.6588 9 18.002V15.002Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M15 9L15 6C15 4.34315 16.3431 3 18 3C19.6569 3 21 4.34315 21 6C21 7.65685 19.6569 9 18 9H15Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M9 9V6C9 4.34315 7.65685 3 6 3C4.34315 3 3 4.34315 3 6C3 7.65685 4.34315 9 6 9H9Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/></symbol>
+</svg>
+<header class="chrome">
+	<div class="chrome-side">
+		<p class="wordmark"><span class="mark" aria-hidden="true"><svg><use href="#hi-activity"/></svg></span>olaclaw</p>
+	</div>
+	<button class="omni outlined" type="button" aria-label="Open the omnibox: Chats, This week">
+		<svg class="omni-icon"><use href="#hi-chat"/></svg>
+		<span class="omni-app">Chats</span>
+		<span class="omni-sep">/</span>
+		<span class="omni-view">This week</span>
+		<span class="omni-key"><svg><use href="#hi-command"/></svg>K</span>
+	</button>
+	<div class="chrome-side end">
+		<button class="avatar" type="button" aria-label="Account"></button>
+	</div>
+</header>
+
+<div class="stage">
+	<aside class="pane left" id="left" aria-label="Workspace">
+		<div class="pane-inner nav">
+			<div class="nav-group">
+				<a href="#"><svg><use href="#hi-home"/></svg>Today</a>
+				<a href="#"><svg><use href="#hi-calendar"/></svg>Routines</a>
+				<a href="#"><svg><use href="#hi-brain"/></svg>Memory</a>
+			</div>
+			<div class="nav-group">
+				<span class="nav-label">Chats</span>
+				<div class="chats">
+					<a href="#" aria-current="page">This week <span class="pulse" aria-hidden="true"></span></a>
+					<a href="#">Reply to Mr. Brandt</a>
+					<a href="#">Backup on the NAS</a>
+					<a href="#">Board minutes, September</a>
+					<a href="#">Receipts for the 2025 tax return</a>
+				</div>
+			</div>
+			<button class="outlined new-chat" type="button"><svg><use href="#hi-plus"/></svg>New chat</button>
+			<div class="pane-foot">
+				<p class="status">Connected</p>
+				<button class="ghost icon" type="button" data-toggle-theme aria-label="Switch to dark mode"><svg class="when-light"><use href="#hi-moon"/></svg><svg class="when-dark"><use href="#hi-sun"/></svg></button>
+			</div>
+		</div>
+	</aside>
+
+	<main class="card">
+		<header class="chat-head">
+			<button class="ghost icon" type="button" data-toggle-left aria-pressed="true" aria-label="Hide the left panel" title="Hide the left panel ( [ )"><svg class="only-wide"><use href="#hi-sidebar-left"/></svg><svg class="only-narrow"><use href="#hi-chat"/></svg></button>
+			<h1>This week</h1>
+			<span class="live"><span class="pulse" aria-hidden="true"></span>Working</span>
+			<span class="context" title="14% of the context window used">
+				<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.9"/><circle cx="18" cy="18" r="15.9" stroke-dashoffset="86"/></svg>
+				<span>14% of context</span>
+			</span>
+			<button class="ghost icon" type="button" data-toggle-right aria-pressed="true" aria-label="Hide the Now panel" title="Hide the Now panel ( ] )"><svg class="only-wide"><use href="#hi-sidebar-right"/></svg><svg class="only-narrow"><use href="#hi-activity"/></svg></button>
+		</header>
+
+		<div data-conversation>
+			<div class="column" data-transcript aria-label="Conversation" aria-live="polite" data-autoplay="What needs me this week?">
+			<article class="msg-user"><p>Good morning. Did the backup run last night?</p></article>
+			<article class="msg-agent">
+				<details class="reasoning"><summary><svg><use href="#hi-idea"/></svg><span>Thought for 2 seconds</span><svg class="chevron"><use href="#hi-chevron"/></svg></summary><p>The backup log on the NAS has the answer. Read the last two entries.</p></details>
+				<details class="tool" data-status="done"><summary><span class="dot"></span><span>Read backup log</span><span class="badge">Done</span><svg class="chevron"><use href="#hi-chevron"/></svg></summary>
+					<div class="tool-body"><div><h4>Input</h4><pre>{ "host": "oflabs-nas", "lines": 40 }</pre></div><div><h4>Output</h4><pre>03:02 target volume full (97%)</pre></div></div></details>
+				<p class="answer">No. It failed at 03:02 with “target volume full”. The run on Monday night failed with the same message.</p>
+				<div class="actions">
+					<button class="ghost" type="button"><svg><use href="#hi-copy"/></svg>Copy</button>
+					<button class="ghost" type="button"><svg><use href="#hi-retry"/></svg>Retry</button>
+				</div>
+			</article>
+			<article class="msg-user"><p>Tell Mr. Brandt that Saturday at 10 works.</p></article>
+			<article class="msg-agent">
+				<details class="tool" data-status="done"><summary><span class="dot"></span><span>Draft email</span><span class="badge">Done</span><svg class="chevron"><use href="#hi-chevron"/></svg></summary>
+					<div class="tool-body"><div><h4>Input</h4><pre>{ "to": "brandt@example.de", "subject": "Meter reading" }</pre></div><div><h4>Output</h4><pre>Draft saved</pre></div></div></details>
+				<div class="approval" data-approval data-state="requested">
+					<p>Send this email to Mr. Brandt?<q>Hello Mr. Brandt, Saturday at 10:00 works for the meter reading. I will be at home. Best regards, Oladayo</q></p>
+					<div><button class="chip-respond" type="button" value="allowed">Send it</button><button class="outlined" type="button" value="denied">Don’t send</button></div>
+					<span class="result allowed">Sent</span><span class="result denied">Not sent</span>
+				</div>
+			</article>
+			<article class="msg-user"><p>What needs me this week?</p></article>
+		</div>
+			<button type="button" data-jump hidden><svg><use href="#hi-chevron"/></svg>Latest</button>
+		</div>
+
+		<footer class="bottom">
+		<div class="column">
+			<div data-suggestions>
+				<button type="button">Draft the board minutes</button>
+				<button type="button">What is due this week?</button>
+				<button type="button">Check the NAS backup</button>
+			</div>
+			<details data-queue open>
+				<summary><span>Queued</span><span class="badge" data-queue-count>0</span><svg class="chevron"><use href="#hi-chevron"/></svg></summary>
+				<ul data-queue-list></ul>
+			</details>
+			<form data-composer>
+				<label class="visually-hidden" for="message">Message</label>
+				<textarea id="message" data-input rows="1" placeholder="Message olaclaw"></textarea>
+				<div class="toolbar">
+					<button class="ghost icon" type="button" aria-label="Add a file"><svg><use href="#hi-attach"/></svg></button>
+					<button class="ghost icon" type="button" aria-label="Speak"><svg><use href="#hi-mic"/></svg></button>
+					<span class="spacer"></span>
+					<label class="visually-hidden" for="model">Model</label>
+					<select class="model" id="model">
+						<option>Kimi K2.7</option>
+						<option>Claude Opus 4.8</option>
+						<option>GPT-6 Sol</option>
+					</select>
+					<button class="chip-primary" type="submit" data-submit aria-label="Send">
+						<svg class="when-idle"><use href="#hi-send"/></svg>
+						<svg class="when-running"><use href="#hi-stop"/></svg>
+					</button>
+				</div>
+			</form>
+			<p class="hint"><span class="when-idle">Enter sends. Shift+Enter adds a line.</span><span class="when-running">Enter queues your message for after this answer. The square stops the run.</span></p>
+		</div>
+	</footer>
+	</main>
+
+	<aside class="pane right" id="right" aria-label="Now">
+		<div class="pane-inner now">
+			<span class="grabber" aria-hidden="true"></span>
+			<h2>Now</h2>
+			<section>
+		<h3><svg><use href="#hi-activity"/></svg>Working</h3>
+		<ul>
+			<li><span class="work"><span class="pulse" aria-hidden="true"></span>Answering in “This week”</span><small>Reading your calendar</small></li>
+			<li><span class="work"><span class="pulse" aria-hidden="true"></span>Checking the NAS backup</span><small>Started 2 minutes ago, in the background</small></li>
+		</ul>
+	</section>
+	<section>
+		<h3><svg><use href="#hi-mail"/></svg>Needs you</h3>
+		<div class="approval" data-approval data-state="requested">
+			<p>Send the reply to Mr. Brandt?</p>
+			<div><button class="chip-respond" type="button" value="allowed">Send it</button><button class="outlined" type="button" value="denied">Not yet</button></div>
+			<span class="result allowed">Sent</span><span class="result denied">Not sent</span>
+		</div>
+	</section>
+	<section>
+		<h3><svg><use href="#hi-clock"/></svg>Coming up</h3>
+		<ul>
+			<li>Backup check<small>Tonight, 03:30</small></li>
+			<li>Morning brief<small>Tomorrow, 07:00</small></li>
+			<li>Receipts reminder<small>Thursday, 18:00</small></li>
+		</ul>
+	</section>
+	<section>
+		<h3><svg><use href="#hi-done"/></svg>Done today</h3>
+		<ul>
+			<li>Morning brief<small>07:00</small></li>
+			<li>Filed 3 emails under Tax 2025<small>08:40</small></li>
+		</ul>
+	</section>
+		</div>
+	</aside>
+</div>
+
+<template id="t-user"><article class="msg-user"><p data-text></p></article></template>
+<template id="t-agent">
+	<article class="msg-agent">
+		<details class="reasoning" data-reasoning><summary><svg><use href="#hi-idea"/></svg><span data-reasoning-label>Thinking</span><svg class="chevron"><use href="#hi-chevron"/></svg></summary><p data-reasoning-text></p></details>
+		<details class="tool" data-tool><summary><span class="dot"></span><span data-tool-name></span><span class="badge" data-tool-badge>Running</span><svg class="chevron"><use href="#hi-chevron"/></svg></summary>
+			<div class="tool-body"><div><h4>Input</h4><pre data-tool-input></pre></div><div><h4>Output</h4><pre data-tool-output></pre></div></div></details>
+		<p class="answer" data-text></p>
+		<p class="stopped">Stopped</p>
+		<div class="actions">
+			<button class="ghost" type="button"><svg><use href="#hi-copy"/></svg>Copy</button>
+			<button class="ghost" type="button"><svg><use href="#hi-retry"/></svg>Retry</button>
+		</div>
+	</article>
+</template>
+<template id="t-queued"><li><span data-text></span><button class="ghost" type="button" data-remove>Remove</button></li></template>
+<script src="workspace.js"></script>
+<script>
+	const root = document.documentElement;
+	const isPhone = () => window.matchMedia("(max-width: 860px)").matches;
+	// Panels: open on a wide screen, closed drawers on a phone. The choice is remembered.
+	for (const side of ["left", "right"]) {
+		const saved = localStorage.getItem(`olaclaw-${side}`);
+		document.body.dataset[side] = isPhone() ? "closed" : (saved ?? "open");
+		for (const button of document.querySelectorAll(`[data-toggle-${side}]`)) {
+			button.addEventListener("click", () => {
+				const next = document.body.dataset[side] === "open" ? "closed" : "open";
+				document.body.dataset[side] = next;
+				if (!isPhone()) localStorage.setItem(`olaclaw-${side}`, next);
+				const panelName = side === "left" ? "left panel" : "Now panel";
+				for (const toggle of document.querySelectorAll(`[data-toggle-${side}]`)) {
+					toggle.setAttribute("aria-pressed", String(next === "open"));
+					const verb = next === "open" ? "Hide" : "Show";
+					toggle.setAttribute("aria-label", `${verb} the ${panelName}`);
+					toggle.title = `${verb} the ${panelName} ( ${side === "left" ? "[" : "]"} )`;
+				}
+			});
+		}
+	}
+	document.addEventListener("keydown", (event) => {
+		if (event.target.matches("textarea, input, select")) return;
+		if (event.key === "[") document.querySelector("[data-toggle-left]").click();
+		if (event.key === "]") document.querySelector("[data-toggle-right]").click();
+	});
+	const savedTheme = localStorage.getItem("olaclaw-theme");
+	const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+	function applyTheme(theme) {
+		root.dataset.theme = theme;
+		for (const button of document.querySelectorAll("[data-toggle-theme]")) {
+			button.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+		}
+	}
+	applyTheme(savedTheme ?? (prefersDark ? "dark" : "light"));
+	for (const button of document.querySelectorAll("[data-toggle-theme]")) {
+		button.addEventListener("click", () => {
+			const next = root.dataset.theme === "dark" ? "light" : "dark";
+			localStorage.setItem("olaclaw-theme", next);
+			applyTheme(next);
+		});
+	}
+</script>
+</body>
+</html>
