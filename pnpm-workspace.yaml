@@ -1,0 +1,9 @@
+allowBuilds:
+  workerd: true
+  "@google/genai": false
+  core-js-pure: false
+  esbuild: false
+  protobufjs: false
+# agents 0.26.0 (first release with agents/harness/pi) is newer than pnpm's default 1-day release cooldown.
+minimumReleaseAgeExclude:
+  - agents@0.26.0
