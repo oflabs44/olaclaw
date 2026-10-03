@@ -69,8 +69,8 @@ export const getNowPanel = createServerFn().handler(async (): Promise<NowPanel> 
 });
 
 export const decideApproval = createServerFn({ method: "POST" })
-	.validator(z.object({ callId: z.string(), option: z.string() }))
-	.handler(({ data }): Promise<void> => userAgent().decideApproval(data.callId, data.option));
+	.validator(z.object({ callId: z.string(), answer: z.string() }))
+	.handler(({ data }): Promise<void> => userAgent().decideApproval(data.callId, data.answer));
 
 export const getToday = createServerFn().handler((): TodayItem[] => []);
 

@@ -15,7 +15,7 @@ export type ClientMessage =
 	| { readonly type: "submit"; readonly text: string }
 	| { readonly type: "abort" }
 	/** The answer to an `ask` tool call of the connection's session. */
-	| { readonly type: "decide"; readonly callId: string; readonly option: string };
+	| { readonly type: "decide"; readonly callId: string; readonly answer: string };
 
 /** Server → client. */
 export type ServerMessage =

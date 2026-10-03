@@ -8,7 +8,7 @@ export function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 	return defineTool({
 		name: ASK_TOOL,
 		description:
-			"Ask Oladayo to choose between options and wait for his answer, however long it takes. Ask only when the answer changes what you do next. Give concrete options and put the one you recommend first. Never ask what memory or this conversation already answers.",
+			"Ask Oladayo a question and wait for his answer, however long it takes. He picks one of your options or writes his own answer. Ask only when the answer changes what you do next. Give concrete options and put the one you recommend first. Never ask what memory or this conversation already answers.",
 		parameters: Type.Object({
 			question: Type.String({ minLength: 1, description: "One short question." }),
 			options: Type.Array(Type.String({ minLength: 1, description: "A few words; shown on a button." }), {
@@ -25,8 +25,9 @@ export function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 		replay: "safe",
 		async execute({ question, options, detail }, api, context) {
 			approvals.open(String(api.conversationId), api.callId, question, options, detail);
-			const decision = await approvals.wait(api.callId, context.abortSignal);
-			return { content: [{ type: "text", text: `Oladayo chose: ${decision}` }] };
+			const answer = await approvals.wait(api.callId, context.abortSignal);
+			const text = options.includes(answer) ? `Oladayo chose: ${answer}` : `Oladayo answered in his own words: ${answer}`;
+			return { content: [{ type: "text", text }] };
 		},
 	});
 }

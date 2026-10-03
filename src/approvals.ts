@@ -17,6 +17,8 @@ type ApprovalRow = {
 	decision: string | null;
 };
 
+const MAX_ANSWER_LENGTH = 500;
+
 const COLUMNS = "call_id, session_id, question, detail, options, decision";
 
 function toRecord(row: ApprovalRow): ApprovalRecord {
@@ -82,18 +84,19 @@ export class Approvals {
 	}
 
 	/**
-	 * The first decision stands; a second one, for example from another tab, changes nothing.
-	 * `session` limits the decision to approvals of that chat.
+	 * The first answer stands; a second one, for example from another tab, changes nothing. An answer
+	 * is one of the options or free text. `session` limits the decision to approvals of that chat.
 	 */
-	decide(callId: string, option: string, session?: string): void {
+	decide(callId: string, answer: string, session?: string): void {
 		const approval = this.#find(callId);
 		if (!approval || (session !== undefined && approval.sessionId !== session)) {
 			throw new Error("Unknown approval");
 		}
-		if (!approval.options.includes(option)) throw new Error(`Not an option: ${JSON.stringify(option)}`);
+		const text = answer.trim();
+		if (text.length === 0 || text.length > MAX_ANSWER_LENGTH) throw new Error("An answer is 1 to 500 characters");
 		if (approval.decision !== null) return;
-		this.#sql.exec("UPDATE approval SET decision = ?, decided_at = ? WHERE call_id = ?", option, Date.now(), callId);
-		this.#waiters.get(callId)?.(option);
+		this.#sql.exec("UPDATE approval SET decision = ?, decided_at = ? WHERE call_id = ?", text, Date.now(), callId);
+		this.#waiters.get(callId)?.(text);
 	}
 
 	/** Undecided, oldest first. */

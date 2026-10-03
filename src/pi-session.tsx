@@ -43,7 +43,7 @@ type PiCommands = {
 	readonly submit: (text: string) => boolean;
 	readonly abort: () => boolean;
 	/** Answers an `ask` tool call of this chat. */
-	readonly decide: (callId: string, option: string) => boolean;
+	readonly decide: (callId: string, answer: string) => boolean;
 };
 
 const PiCommandsContext = createContext<PiCommands | null>(null);
@@ -164,7 +164,7 @@ export function PiSessionProvider({ chatId, children }: { chatId: string; childr
 				return true;
 			},
 			abort: () => send({ type: "abort" }),
-			decide: (callId, option) => send({ type: "decide", callId, option }),
+			decide: (callId, answer) => send({ type: "decide", callId, answer }),
 		};
 	}, [agent]);
 

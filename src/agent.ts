@@ -117,7 +117,7 @@ export class PiAgent extends DurableObject<Env> {
 		return this.approvals.pending();
 	}
 
-	decideApproval(callId: string, option: string): void {
-		this.approvals.decide(callId, option);
+	decideApproval(callId: string, answer: string): void {
+		this.approvals.decide(callId, answer);
 	}
 }

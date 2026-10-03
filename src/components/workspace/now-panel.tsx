@@ -95,9 +95,9 @@ function NeedsYouSection() {
 	const router = useRouter();
 
 	// Not through the chat socket: that one answers only for the open chat.
-	async function decide(callId: string, option: string) {
+	async function decide(callId: string, answer: string) {
 		try {
-			await decideApproval({ data: { callId, option } });
+			await decideApproval({ data: { callId, answer } });
 		} catch (error) {
 			console.error("Cannot send the answer", error);
 			toast.add({ title: "Could not send your answer", description: "Try again in a moment." });
@@ -113,7 +113,7 @@ function NeedsYouSection() {
 				<ApprovalBlock
 					key={approval.id}
 					approval={approval}
-					onDecide={(option) => decide(approval.id, option)}
+					onDecide={(answer) => decide(approval.id, answer)}
 					className="px-3 py-2.5 text-[0.9rem]"
 				>
 					<Link
