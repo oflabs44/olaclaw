@@ -8,7 +8,7 @@ export default defineConfig({
 		compatibilityFlags: ["nodejs_compat"],
 		entrypoint,
 		// Cloudflare Access protects only the custom domain, so every other URL stays off.
-		domains: ["claw.fagbemi.me"],
+		domains: ["ai.fagbemi.me"],
 		workersDev: false,
 		previewUrls: false,
 		exports: {

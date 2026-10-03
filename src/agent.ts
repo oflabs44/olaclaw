@@ -5,6 +5,7 @@ import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
 import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
+import { instructions } from "./instructions";
 import { PiSessionSockets } from "./sockets";
 
 export class PiAgent extends DurableObject<Env> {
@@ -15,6 +16,7 @@ export class PiAgent extends DurableObject<Env> {
 		harness: ({ storage, context }) => {
 			const models = createModels();
 			models.setProvider(this.ai.provider);
+			this.registry.install(instructions);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},
 		defaults: { model: this.ai("@cf/moonshotai/kimi-k2.7-code") },
