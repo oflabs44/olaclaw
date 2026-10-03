@@ -231,6 +231,7 @@ export function AssistantMessage({
 				</p>
 			)}
 			{message.stopped && <p className="text-[0.88rem] font-semibold text-ink-soft">Stopped</p>}
+			{message.fallback && <p className="text-[0.88rem] text-ink-soft">{message.fallback}</p>}
 			{message.error && !message.stopped && (
 				<p className="text-[0.88rem] text-danger" role="alert">
 					{message.error}

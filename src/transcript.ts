@@ -36,7 +36,24 @@ export type PiMessage = {
 	readonly error?: string;
 	/** The run was aborted while this assistant message was being written, usually by a Stop. */
 	readonly stopped?: boolean;
+	/** Another model answered because the chat's model failed before it produced output. */
+	readonly fallback?: string;
 };
+
+// The diagnostic `agents/models/pi-ai` records when a fallback leg answered. The constant is
+// copied so the client bundle does not pull in the provider module.
+const FALLBACK_DIAGNOSTIC = "cloudflare-fallback";
+
+function fallbackNotice(message: AssistantMessage): string | undefined {
+	const diagnostic = message.diagnostics?.find((candidate) => candidate.type === FALLBACK_DIAGNOSTIC);
+	const attempts = diagnostic?.details?.attempts;
+	if (!Array.isArray(attempts) || attempts.length === 0) return undefined;
+	const failed = attempts
+		.map((attempt) => (typeof attempt === "object" && attempt !== null && "model" in attempt ? String(attempt.model) : undefined))
+		.filter((model) => model !== undefined)
+		.join(", ");
+	return `${message.model} answered because ${failed} failed`;
+}
 
 function userParts(content: UserMessage["content"]): PiMessagePart[] {
 	return typeof content === "string" ? [{ type: "text", text: content }] : content;
@@ -72,6 +89,7 @@ export function projectMessage(message: Message, id: string): PiMessage {
 				parts: message.content.map((block) => projectBlock(block)),
 				error: message.errorMessage ?? (message.stopReason === "error" ? "Model error" : undefined),
 				stopped: message.stopReason === "aborted",
+				fallback: fallbackNotice(message),
 			};
 		case "toolResult":
 			return {

@@ -1,6 +1,7 @@
 import { type PiHarness, type PiSessionId, ROOT_SESSION } from "agents/harness/pi";
+import { DEFAULT_MODEL, type ModelId } from "./models";
 
-export type ChatSummary = { readonly id: string; readonly title: string };
+export type ChatSummary = { readonly id: string; readonly title: string; readonly model: ModelId };
 
 const UNTITLED = "New chat";
 
@@ -39,6 +40,12 @@ export class Chats {
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS chat (session_id TEXT PRIMARY KEY, title TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 		);
+		// The table was deployed without `model`. The chats from before run Kimi, so that is the column default.
+		const hasModel = sql
+			.exec<{ name: string }>("PRAGMA table_info(chat)")
+			.toArray()
+			.some((column) => column.name === "model");
+		if (!hasModel) sql.exec("ALTER TABLE chat ADD COLUMN model TEXT NOT NULL DEFAULT 'kimi-k2.7'");
 		// URLs Oladayo typed in a chat: the only ones `fetch_url` may fetch there, so a fetched page
 		// cannot talk the model into sending data elsewhere.
 		sql.exec(
@@ -48,33 +55,39 @@ export class Chats {
 		// It keeps its old placeholder title: its first message is long gone.
 		const now = Date.now();
 		sql.exec(
-			"INSERT INTO chat (session_id, title, created_at, updated_at) SELECT ?, 'Chat', ?, ? WHERE NOT EXISTS (SELECT 1 FROM chat)",
+			"INSERT INTO chat (session_id, title, created_at, updated_at, model) SELECT ?, 'Chat', ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM chat)",
 			ROOT_SESSION,
 			now,
 			now,
+			DEFAULT_MODEL,
 		);
 	}
 
 	/** Most recently used first. */
 	list(): ChatSummary[] {
 		return this.#sql
-			.exec<{ session_id: string; title: string | null }>(
-				"SELECT session_id, title FROM chat ORDER BY updated_at DESC, created_at DESC",
+			.exec<{ session_id: string; title: string | null; model: ModelId }>(
+				"SELECT session_id, title, model FROM chat ORDER BY updated_at DESC, created_at DESC",
 			)
 			.toArray()
-			.map((row) => ({ id: row.session_id, title: row.title ?? UNTITLED }));
+			.map((row) => ({ id: row.session_id, title: row.title ?? UNTITLED, model: row.model }));
 	}
 
 	async create(): Promise<ChatSummary> {
 		const session = await this.#harness.sessions.create();
 		const now = Date.now();
 		this.#sql.exec(
-			"INSERT INTO chat (session_id, title, created_at, updated_at) VALUES (?, NULL, ?, ?)",
+			"INSERT INTO chat (session_id, title, created_at, updated_at, model) VALUES (?, NULL, ?, ?, ?)",
 			session.id,
 			now,
 			now,
+			DEFAULT_MODEL,
 		);
-		return { id: session.id, title: UNTITLED };
+		return { id: session.id, title: UNTITLED, model: DEFAULT_MODEL };
+	}
+
+	setModel(session: PiSessionId, model: ModelId): void {
+		this.#sql.exec("UPDATE chat SET model = ? WHERE session_id = ?", model, session);
 	}
 
 	has(session: PiSessionId): boolean {

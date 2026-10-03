@@ -6,6 +6,7 @@ import {
 	StopIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { type KeyboardEvent, type SubmitEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -13,14 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MODELS, type ModelId } from "@/models";
 import { usePiCommands, usePiSession } from "@/pi-session";
+import { setChatModel } from "@/workspace-data";
 
-// The model picker is not wired yet; the agent always uses Kimi K2.7.
-const MODELS = [
-	{ value: "kimi-k2.7", label: "Kimi K2.7" },
-	{ value: "claude-opus", label: "Claude Opus" },
-	{ value: "gpt-6", label: "GPT-6" },
-];
+const chatRoute = getRouteApi("/chats/$chatId");
+
+// The trigger shows the label of the chosen item; the list shows the note too.
+const MODEL_ITEMS = MODELS.map((model) => ({ value: model.id, label: model.label }));
 
 const SUGGESTIONS = ["What can you do?", "Help me plan my week", "Draft a short email"];
 
@@ -36,6 +37,39 @@ function ToolbarButton({ label, icon }: { label: string; icon: typeof Mic01Icon 
 			</TooltipTrigger>
 			<TooltipContent>{label}</TooltipContent>
 		</Tooltip>
+	);
+}
+
+function ModelPicker() {
+	const router = useRouter();
+	const chatId = chatRoute.useParams({ select: (params) => params.chatId });
+	const model = chatRoute.useLoaderData({ select: (chat) => chat.model });
+
+	async function changeModel(next: ModelId | null) {
+		if (next === null || next === model) return;
+		try {
+			await setChatModel({ data: { chatId, model: next } });
+			await router.invalidate();
+		} catch (error) {
+			console.error("Cannot change the model", error);
+			toast.add({ title: "Could not change the model", description: "Try again in a moment." });
+		}
+	}
+
+	return (
+		<Select items={MODEL_ITEMS} value={model} onValueChange={changeModel}>
+			<SelectTrigger aria-label="Model">
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent>
+				{MODELS.map((candidate) => (
+					<SelectItem key={candidate.id} value={candidate.id}>
+						{candidate.label}
+						<span className="block text-[12px] text-ink-soft">{candidate.note}</span>
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }
 
@@ -169,18 +203,7 @@ export function Composer() {
 						<ToolbarButton label="Add a file" icon={Attachment01Icon} />
 						<ToolbarButton label="Speak" icon={Mic01Icon} />
 						<span className="flex-1" />
-						<Select items={MODELS} value={MODELS[0].value} onValueChange={notWiredYet}>
-							<SelectTrigger aria-label="Model">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{MODELS.map((model) => (
-									<SelectItem key={model.value} value={model.value}>
-										{model.label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+						<ModelPicker />
 						{isRunning ? (
 							<Button
 								icon

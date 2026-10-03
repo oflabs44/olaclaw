@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
-import { createModels } from "@earendil-works/pi-ai/models";
+import type { Api, Model } from "@earendil-works/pi-ai";
+import { createModels, createProvider } from "@earendil-works/pi-ai/models";
+import { ANTHROPIC_MODELS } from "@earendil-works/pi-ai/providers/anthropic.models";
 import { createRegistry, Harness } from "@earendil-works/pi-durable";
 import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
@@ -8,12 +10,22 @@ import { WebSockets } from "agents/websockets";
 import { type ChatSummary, Chats } from "./chats";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
+import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
 import { memoryExtension } from "./tools/memory";
 
+const KIMI = "@cf/moonshotai/kimi-k2.7-code";
+
 export class PiAgent extends DurableObject<Env> {
-	readonly ai = createAI({ binding: this.env.AI });
+	readonly ai = createAI({ binding: this.env.AI, id: "homey" });
+	// Kimi answers when a Claude request fails before any output, for example when the gateway credits
+	// run out. The answer then carries a fallback diagnostic, which the chat shows under the message.
+	readonly models: Record<ModelId, Model<Api>> = {
+		"claude-sonnet-5-5": this.ai(ANTHROPIC_MODELS["claude-sonnet-5-5"], { fallback: [KIMI] }),
+		"claude-opus-5-5": this.ai(ANTHROPIC_MODELS["claude-opus-5-5"], { fallback: [KIMI] }),
+		"kimi-k2.7": this.ai(KIMI),
+	};
 	readonly registry = createRegistry();
 	readonly memory = new Memory(this.ctx.storage.sql);
 
@@ -21,13 +33,23 @@ export class PiAgent extends DurableObject<Env> {
 		harness: ({ storage, context }) => {
 			const models = createModels();
 			models.setProvider(this.ai.provider);
+			// Pi resolves a session's model against this list at each request and uses the listed object, so the
+			// Claude models go in with their fallback option attached, under pi-ai's own `anthropic` provider id.
+			models.setProvider(
+				createProvider({
+					id: "anthropic",
+					auth: this.ai.provider.auth,
+					api: this.ai.provider,
+					models: [this.models["claude-sonnet-5-5"], this.models["claude-opus-5-5"]],
+				}),
+			);
 			this.registry.install(instructions);
 			this.registry.install(memoryExtension(this.memory));
 			this.registry.install(toolsExtension(this.chats));
 			this.registry.install(clock);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},
-		defaults: { model: this.ai("@cf/moonshotai/kimi-k2.7-code") },
+		defaults: { model: this.models[DEFAULT_MODEL] },
 	});
 
 	readonly chats = new Chats(this.ctx.storage.sql, this.harness);
@@ -53,6 +75,14 @@ export class PiAgent extends DurableObject<Env> {
 
 	createChat(): Promise<ChatSummary> {
 		return this.chats.create();
+	}
+
+	async setChatModel(chatId: string, model: string): Promise<void> {
+		const known = MODELS.find((candidate) => candidate.id === model);
+		if (!known) throw new Error(`Unknown model ${JSON.stringify(model)}`);
+		if (!this.chats.has(chatId)) throw new Error(`Unknown chat ${JSON.stringify(chatId)}`);
+		await this.harness.session(chatId).setModel(this.models[known.id]);
+		this.chats.setModel(chatId, known.id);
 	}
 
 	listMemories(): MemoryEntry[] {

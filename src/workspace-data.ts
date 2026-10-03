@@ -45,6 +45,10 @@ export const createChat = createServerFn({ method: "POST" }).handler(
 	(): Promise<ChatSummary> => userAgent().createChat(),
 );
 
+export const setChatModel = createServerFn({ method: "POST" })
+	.validator(z.object({ chatId: z.string(), model: z.string() }))
+	.handler(({ data }): Promise<void> => userAgent().setChatModel(data.chatId, data.model));
+
 export const getNowPanel = createServerFn().handler(
 	(): NowPanel => ({ working: [], needsYou: [], comingUp: [], doneToday: [] }),
 );

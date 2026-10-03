@@ -27,16 +27,15 @@ Never ask for, repeat, or store passwords, secrets, or login codes; 1Password ho
 
 function now(): string {
 	const date = new Date();
-	const stamp = date.toLocaleString("en-GB", {
+	const day = date.toLocaleDateString("en-GB", {
 		timeZone: TIME_ZONE,
 		weekday: "long",
 		year: "numeric",
 		month: "long",
 		day: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
 	});
-	return `${stamp} (${TIME_ZONE}). Use this for anything relative like "today" or "next week".`;
+	const hour = date.toLocaleTimeString("en-GB", { timeZone: TIME_ZONE, hour: "2-digit" });
+	return `${day}, about ${hour}:00 (${TIME_ZONE}). Use this for anything relative like "today" or "next week".`;
 }
 
 /** The foundational system prompt. Tools, memory, and routines add their own sections. */
@@ -51,7 +50,10 @@ export const instructions: Extension = {
 	],
 };
 
-/** Installed last: it changes every request, so every static section stays cacheable before it. */
+/**
+ * Installed last and hour-granular: the provider caches the system prompt as one prefix, so a value
+ * that changed every minute would miss the cache on every request.
+ */
 export const clock: Extension = {
 	name: "clock",
 	sections: [{ key: "now", render: now }],
