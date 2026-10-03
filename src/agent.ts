@@ -6,18 +6,25 @@ import { Lifecycle } from "agents/lifecycle";
 import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
 import { type ChatSummary, Chats } from "./chats";
-import { instructions } from "./instructions";
+import { clock, instructions } from "./instructions";
+import { Memory, type MemoryEntry } from "./memory";
 import { PiSessionSockets } from "./sockets";
+import { toolsExtension } from "./tools";
+import { memoryExtension } from "./tools/memory";
 
 export class PiAgent extends DurableObject<Env> {
 	readonly ai = createAI({ binding: this.env.AI });
 	readonly registry = createRegistry();
+	readonly memory = new Memory(this.ctx.storage.sql);
 
 	readonly harness = new PiHarness({
 		harness: ({ storage, context }) => {
 			const models = createModels();
 			models.setProvider(this.ai.provider);
 			this.registry.install(instructions);
+			this.registry.install(memoryExtension(this.memory));
+			this.registry.install(toolsExtension(this.chats));
+			this.registry.install(clock);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},
 		defaults: { model: this.ai("@cf/moonshotai/kimi-k2.7-code") },
@@ -46,5 +53,9 @@ export class PiAgent extends DurableObject<Env> {
 
 	createChat(): Promise<ChatSummary> {
 		return this.chats.create();
+	}
+
+	listMemories(): MemoryEntry[] {
+		return this.memory.list();
 	}
 }

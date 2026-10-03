@@ -11,6 +11,16 @@ export const Route = createFileRoute("/memory")({
 	component: MemoryPage,
 });
 
+// A fixed locale and zone, so the server render and the hydrating client agree.
+function formatDate(epochMilliseconds: number): string {
+	return new Date(epochMilliseconds).toLocaleDateString("en-GB", {
+		timeZone: "Europe/Berlin",
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+	});
+}
+
 function MemoryPage() {
 	const memories = Route.useLoaderData();
 	return (
@@ -23,14 +33,17 @@ function MemoryPage() {
 							<HugeiconsIcon icon={Brain01Icon} strokeWidth={1.5} />
 						</EmptyMedia>
 						<EmptyTitle>Nothing remembered yet</EmptyTitle>
-						<EmptyDescription>What you ask olaclaw to keep in mind shows here.</EmptyDescription>
+						<EmptyDescription>What Phoebe remembers shows here.</EmptyDescription>
 					</EmptyHeader>
 				</Empty>
 			) : (
 				<ul className="mx-auto grid w-full max-w-[44rem] gap-1 overflow-y-auto p-6">
 					{memories.map((memory) => (
 						<li key={memory.id} className="rounded px-3 py-2 hover:bg-wash">
-							{memory.text}
+							<p>{memory.text}</p>
+							<p className="text-sm text-ink-faint">
+								{memory.kind === "fact" ? "Fact" : "Note"} · {formatDate(memory.createdAt)}
+							</p>
 						</li>
 					))}
 				</ul>

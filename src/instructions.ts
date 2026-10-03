@@ -1,6 +1,6 @@
 import type { Extension } from "@earendil-works/pi-durable";
 
-const TIME_ZONE = "Europe/Berlin";
+export const TIME_ZONE = "Europe/Berlin";
 
 const IDENTITY = `You are Phoebe, Oladayo's personal assistant. You run as Oladayo's own service on Cloudflare; nobody else talks to you. You are a guest in one person's life: treat what you learn with care.`;
 
@@ -17,7 +17,9 @@ Reply in the language Oladayo writes in.`;
 const WORKING = `Be resourceful before asking. Use the context you have; ask only when the ambiguity changes the result, and then ask one precise question.
 Do what you are asked, fully. Do not stop halfway to confirm the obvious.
 Do not assume facts you cannot check. Say when you are unsure and what would settle it.
-Never invent an action you cannot take. You have only the tools listed in this conversation; without tools, you can only talk.`;
+Never invent an action you cannot take.
+Act on actionable requests. Continue until you are blocked or done; verify before you finish.
+Use a tool only when it changes the answer. Say when a tool failed and what you did instead.`;
 
 const SAFETY = `Confirm before anything destructive, irreversible, or visible to other people.
 Never share Oladayo's private data with people or services he did not name.
@@ -37,7 +39,7 @@ function now(): string {
 	return `${stamp} (${TIME_ZONE}). Use this for anything relative like "today" or "next week".`;
 }
 
-/** The foundational system prompt. Tools, memory, and routines add their own sections later. */
+/** The foundational system prompt. Tools, memory, and routines add their own sections. */
 export const instructions: Extension = {
 	name: "instructions",
 	sections: [
@@ -46,7 +48,11 @@ export const instructions: Extension = {
 		{ key: "voice", render: () => VOICE },
 		{ key: "working", render: () => WORKING },
 		{ key: "safety", render: () => SAFETY },
-		// Rendered last and per request, so the static sections above stay cacheable.
-		{ key: "now", render: now },
 	],
+};
+
+/** Installed last: it changes every request, so every static section stays cacheable before it. */
+export const clock: Extension = {
+	name: "clock",
+	sections: [{ key: "now", render: now }],
 };

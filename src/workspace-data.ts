@@ -3,9 +3,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import type { ChatSummary } from "./chats";
+import type { MemoryEntry } from "./memory";
 import { AGENT_NAME } from "./protocol";
 
-// Chats come from the user's agent object. The other functions are typed placeholders that return
+// Chats and memories come from the user's agent object. The other functions are typed placeholders that return
 // what exists today; wiring a feature later changes the function body.
 
 /** A decision the assistant waits for, shown in "Needs you" and in the chat that asked. */
@@ -22,8 +23,6 @@ export type NowPanel = {
 };
 
 export type Routine = { readonly id: string; readonly title: string; readonly schedule: string };
-
-export type Memory = { readonly id: string; readonly text: string };
 
 export type TodayItem = { readonly id: string; readonly title: string; readonly when: string };
 
@@ -54,4 +53,4 @@ export const getToday = createServerFn().handler((): TodayItem[] => []);
 
 export const getRoutines = createServerFn().handler((): Routine[] => []);
 
-export const getMemories = createServerFn().handler((): Memory[] => []);
+export const getMemories = createServerFn().handler((): Promise<MemoryEntry[]> => userAgent().listMemories());
