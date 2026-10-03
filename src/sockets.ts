@@ -52,6 +52,8 @@ export class PiSessionSockets {
 	readonly #getWebSockets: () => WebSocket[];
 	readonly #getTags: (socket: WebSocket) => string[];
 	readonly #chats: ChatRegistry;
+	// Typed with the session required: a socket may decide only for its own chat.
+	readonly #approvals: { decide(callId: string, option: string, session: PiSessionId): void };
 	readonly #watches = new Map<WebSocket, AgentEventStream>();
 
 	constructor(
@@ -59,11 +61,13 @@ export class PiSessionSockets {
 		getWebSockets: () => WebSocket[],
 		getTags: (socket: WebSocket) => string[],
 		chats: ChatRegistry,
+		approvals: { decide(callId: string, option: string, session: PiSessionId): void },
 	) {
 		this.#harness = harness;
 		this.#getWebSockets = getWebSockets;
 		this.#getTags = getTags;
 		this.#chats = chats;
+		this.#approvals = approvals;
 	}
 
 	// Pi also has conversations that subagent tools own; a socket may only follow a chat.
@@ -147,7 +151,7 @@ export class PiSessionSockets {
 	// The message is unvalidated socket input, so each field is checked before use.
 	async #dispatch(
 		session: PiSessionId,
-		message: { type?: unknown; text?: unknown } | null,
+		message: { type?: unknown; text?: unknown; callId?: unknown; option?: unknown } | null,
 	): Promise<void> {
 		const handle = this.#harness.session(session);
 		switch (message?.type) {
@@ -165,6 +169,13 @@ export class PiSessionSockets {
 			}
 			case "abort":
 				await handle.abort();
+				return;
+			case "decide":
+				if (typeof message.callId !== "string" || typeof message.option !== "string") {
+					throw new Error("Decision needs a call id and an option");
+				}
+				// A socket decides only for its own chat.
+				this.#approvals.decide(message.callId, message.option, session);
 				return;
 			default:
 				throw new Error("Unknown message type");

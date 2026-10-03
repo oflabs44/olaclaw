@@ -6,11 +6,18 @@ import type { ChatSummary } from "./chats";
 import type { MemoryEntry } from "./memory";
 import { AGENT_NAME } from "./protocol";
 
-// Chats and memories come from the user's agent object. The other functions are typed placeholders that return
+// Chats, memories, and approvals come from the user's agent object. The other functions are typed placeholders that return
 // what exists today; wiring a feature later changes the function body.
 
 /** A decision the assistant waits for, shown in "Needs you" and in the chat that asked. */
-export type Approval = { readonly id: string; readonly question: string; readonly detail?: string };
+export type Approval = {
+	/** The id of the `ask` tool call that waits. */
+	readonly id: string;
+	readonly chatId: string;
+	readonly question: string;
+	readonly detail?: string;
+	readonly options: readonly string[];
+};
 
 export type ScheduledItem = { readonly id: string; readonly title: string; readonly when: string };
 
@@ -49,9 +56,21 @@ export const setChatModel = createServerFn({ method: "POST" })
 	.validator(z.object({ chatId: z.string(), model: z.string() }))
 	.handler(({ data }): Promise<void> => userAgent().setChatModel(data.chatId, data.model));
 
-export const getNowPanel = createServerFn().handler(
-	(): NowPanel => ({ working: [], needsYou: [], comingUp: [], doneToday: [] }),
-);
+export const getNowPanel = createServerFn().handler(async (): Promise<NowPanel> => {
+	const pending = await userAgent().listApprovals();
+	const needsYou = pending.map((approval) => ({
+		id: approval.callId,
+		chatId: approval.sessionId,
+		question: approval.question,
+		detail: approval.detail ?? undefined,
+		options: approval.options,
+	}));
+	return { working: [], needsYou, comingUp: [], doneToday: [] };
+});
+
+export const decideApproval = createServerFn({ method: "POST" })
+	.validator(z.object({ callId: z.string(), option: z.string() }))
+	.handler(({ data }): Promise<void> => userAgent().decideApproval(data.callId, data.option));
 
 export const getToday = createServerFn().handler((): TodayItem[] => []);
 

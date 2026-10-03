@@ -3,7 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { createStore, useSelector } from "@tanstack/react-store";
 import { useAgent } from "agents/react";
 import { createContext, type ReactNode, use, useLayoutEffect, useMemo, useRef } from "react";
-import { type ClientMessage, type ServerMessage, SOCKET_PATH } from "./protocol";
+import { ASK_TOOL, type ClientMessage, type ServerMessage, SOCKET_PATH } from "./protocol";
 import { EMPTY_VIEW, type PiSessionView, reduceEvents } from "./view";
 
 export type ConnectionStatus = "connecting" | "open" | "closed";
@@ -42,6 +42,8 @@ type PiCommands = {
 	/** Idle: starts a run. Busy: Pi queues the text as a follow-up. False when the socket is not open. */
 	readonly submit: (text: string) => boolean;
 	readonly abort: () => boolean;
+	/** Answers an `ask` tool call of this chat. */
+	readonly decide: (callId: string, option: string) => boolean;
 };
 
 const PiCommandsContext = createContext<PiCommands | null>(null);
@@ -124,7 +126,14 @@ export function PiSessionProvider({ chatId, children }: { chatId: string; childr
 					const messages = piSessionStore.state.messages;
 					const isFirstRun = messages.filter((message) => message.role === "user").length === 1;
 					const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
-					if (!hasSnapshot && isFirstRun && ((wasEmpty && messages.length > 0) || runEnded)) {
+					// "Needs you" lists the open questions, so it reloads when `ask` starts and when it ends:
+					// answered here, answered from the Now panel, or withdrawn by a Stop.
+					const askChanged = events.some(
+						(agentEvent) =>
+							(agentEvent.type === "tool_execution_start" || agentEvent.type === "tool_execution_end") &&
+							agentEvent.toolName === ASK_TOOL,
+					);
+					if (askChanged || (!hasSnapshot && isFirstRun && ((wasEmpty && messages.length > 0) || runEnded))) {
 						void router.invalidate();
 					}
 					return;
@@ -155,6 +164,7 @@ export function PiSessionProvider({ chatId, children }: { chatId: string; childr
 				return true;
 			},
 			abort: () => send({ type: "abort" }),
+			decide: (callId, option) => send({ type: "decide", callId, option }),
 		};
 	}, [agent]);
 

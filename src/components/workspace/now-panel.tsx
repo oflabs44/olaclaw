@@ -5,14 +5,15 @@ import {
 	Mail01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { useLoaderData } from "@tanstack/react-router";
+import { Link, useLoaderData, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { ApprovalBlock } from "@/components/chat/approval-block";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { SheetTitle } from "@/components/ui/sheet";
+import { toast } from "@/components/ui/toast";
 import { usePiSession } from "@/pi-session";
-import type { ScheduledItem } from "@/workspace-data";
+import { decideApproval, type ScheduledItem } from "@/workspace-data";
 import { useOpenChatTitle } from "./current-place";
 
 function Section({ title, icon, children }: { title: string; icon: IconSvgElement; children: ReactNode }) {
@@ -88,6 +89,46 @@ function WorkingSection() {
 	);
 }
 
+function NeedsYouSection() {
+	const approvals = useLoaderData({ from: "__root__", select: (data) => data.now.needsYou });
+	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+	const router = useRouter();
+
+	// Not through the chat socket: that one answers only for the open chat.
+	async function decide(callId: string, option: string) {
+		try {
+			await decideApproval({ data: { callId, option } });
+		} catch (error) {
+			console.error("Cannot send the answer", error);
+			toast.add({ title: "Could not send your answer", description: "Try again in a moment." });
+		}
+		// Also after a failure: the question may be gone already.
+		await router.invalidate();
+	}
+
+	if (approvals.length === 0) return <SectionEmpty>Nothing needs you</SectionEmpty>;
+	return (
+		<div className="grid gap-2 px-0.5 pb-1.5">
+			{approvals.map((approval) => (
+				<ApprovalBlock
+					key={approval.id}
+					approval={approval}
+					onDecide={(option) => decide(approval.id, option)}
+					className="px-3 py-2.5 text-[0.9rem]"
+				>
+					<Link
+						to="/chats/$chatId"
+						params={{ chatId: approval.chatId }}
+						className="truncate text-[0.82rem] text-ink-soft underline underline-offset-4"
+					>
+						{chats.find((chat) => chat.id === approval.chatId)?.title ?? "Chat"}
+					</Link>
+				</ApprovalBlock>
+			))}
+		</div>
+	);
+}
+
 /** The right pane: what the assistant does without you. */
 export function NowPanel({ isSheet = false }: { isSheet?: boolean }) {
 	const now = useLoaderData({ from: "__root__", select: (data) => data.now });
@@ -104,15 +145,7 @@ export function NowPanel({ isSheet = false }: { isSheet?: boolean }) {
 				<WorkingSection />
 			</Section>
 			<Section title="Needs you" icon={Mail01Icon}>
-				{now.needsYou.length === 0 ? (
-					<SectionEmpty>Nothing needs you</SectionEmpty>
-				) : (
-					<div className="grid gap-2 px-0.5 pb-1.5">
-						{now.needsYou.map((approval) => (
-							<ApprovalBlock key={approval.id} approval={approval} className="px-3 py-2.5 text-[0.9rem]" />
-						))}
-					</div>
-				)}
+				<NeedsYouSection />
 			</Section>
 			<Section title="Coming up" icon={Clock01Icon}>
 				<ScheduledList items={now.comingUp} empty="No routines scheduled" />

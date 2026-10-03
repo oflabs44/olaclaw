@@ -3,9 +3,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { ASK_TOOL } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
+import { usePiCommands } from "@/pi-session";
 import type { PiMessage, PiMessagePart } from "@/transcript";
+import { ApprovalBlock, type ApprovalQuestion } from "./approval-block";
 import { Markdown } from "./markdown";
 
 export type ToolResult = Extract<PiMessagePart, { type: "tool-result" }>;
@@ -111,6 +114,33 @@ function ToolRow({
 	);
 }
 
+/** The question of an `ask` call. Undefined when the arguments are not what the tool takes. */
+function askedQuestion(call: ToolCall): ApprovalQuestion | undefined {
+	const args = call.arguments;
+	if (typeof args !== "object" || args === null || !("question" in args) || !("options" in args)) return undefined;
+	const { question, options } = args;
+	const detail = "detail" in args ? args.detail : undefined;
+	if (typeof question !== "string" || !Array.isArray(options)) return undefined;
+	return {
+		question,
+		detail: typeof detail === "string" ? detail : undefined,
+		options: options.filter((option) => typeof option === "string"),
+	};
+}
+
+function AskBlock({ call, approval }: { call: ToolCall; approval: ApprovalQuestion }) {
+	const { decide } = usePiCommands();
+
+	// The answer ends the tool call, and the result that follows replaces this block.
+	function choose(option: string) {
+		if (!decide(call.id, option)) {
+			toast.add({ title: "Not connected", description: "Try again in a moment." });
+		}
+	}
+
+	return <ApprovalBlock approval={approval} onDecide={choose} />;
+}
+
 function ToolBlock({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<div>
@@ -197,7 +227,11 @@ export function AssistantMessage({
 				switch (part.type) {
 					case "thinking":
 						return <Reasoning key={index} text={part.text} isStreaming={isLive && isLastPart} />;
-					case "tool-call":
+					case "tool-call": {
+						// `ask` waits for a choice while it runs. Once answered it shows as any other tool call.
+						const isWaiting = !toolResults.has(part.id) && runningToolOutput.has(part.id);
+						const approval = part.name === ASK_TOOL && isWaiting ? askedQuestion(part) : undefined;
+						if (approval) return <AskBlock key={part.id} call={part} approval={approval} />;
 						return (
 							<ToolRow
 								key={part.id}
@@ -207,6 +241,7 @@ export function AssistantMessage({
 								isRunNow={isRunNow}
 							/>
 						);
+					}
 					case "text":
 						if (part.text === "" && !(isLive && isLastPart)) return null;
 						return (

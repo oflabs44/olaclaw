@@ -1,6 +1,9 @@
 // Adapted from Cloudflare's Pi harness example (MIT, Copyright (c) 2025 Cloudflare, Inc.).
 import type { AgentEvent } from "@earendil-works/pi-durable";
 
+/** The tool whose running call the chat renders as a question with buttons. */
+export const ASK_TOOL = "ask";
+
 /** URL path of the chat socket. The Worker forwards upgrades on it to the user's object. */
 export const SOCKET_PATH = "agent-socket";
 
@@ -10,7 +13,9 @@ export const AGENT_NAME = "oladayo";
 /** Client → server. */
 export type ClientMessage =
 	| { readonly type: "submit"; readonly text: string }
-	| { readonly type: "abort" };
+	| { readonly type: "abort" }
+	/** The answer to an `ask` tool call of the connection's session. */
+	| { readonly type: "decide"; readonly callId: string; readonly option: string };
 
 /** Server → client. */
 export type ServerMessage =

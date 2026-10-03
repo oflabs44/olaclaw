@@ -7,6 +7,7 @@ import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
 import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
+import { type ApprovalRecord, Approvals } from "./approvals";
 import { type ChatSummary, Chats } from "./chats";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
@@ -28,6 +29,7 @@ export class PiAgent extends DurableObject<Env> {
 	};
 	readonly registry = createRegistry();
 	readonly memory = new Memory(this.ctx.storage.sql);
+	readonly approvals = new Approvals(this.ctx.storage.sql);
 
 	readonly harness = new PiHarness({
 		harness: ({ storage, context }) => {
@@ -45,7 +47,7 @@ export class PiAgent extends DurableObject<Env> {
 			);
 			this.registry.install(instructions);
 			this.registry.install(memoryExtension(this.memory));
-			this.registry.install(toolsExtension(this.chats));
+			this.registry.install(toolsExtension(this.chats, this.approvals));
 			this.registry.install(clock);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},
@@ -59,6 +61,7 @@ export class PiAgent extends DurableObject<Env> {
 		() => this.ctx.getWebSockets(),
 		(socket) => this.ctx.getTags(socket),
 		this.chats,
+		this.approvals,
 	);
 	readonly webSockets = new WebSockets(this.sessionSockets.options());
 
@@ -108,5 +111,13 @@ export class PiAgent extends DurableObject<Env> {
 
 	listMemories(): MemoryEntry[] {
 		return this.memory.list();
+	}
+
+	listApprovals(): ApprovalRecord[] {
+		return this.approvals.pending();
+	}
+
+	decideApproval(callId: string, option: string): void {
+		this.approvals.decide(callId, option);
 	}
 }
