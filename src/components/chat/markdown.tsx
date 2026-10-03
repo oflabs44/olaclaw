@@ -1,5 +1,5 @@
-import { code } from "@streamdown/code";
 import { Streamdown } from "streamdown";
+import { codeHighlighter } from "./code-highlighter";
 
 // Streamdown completes unterminated markdown while tokens arrive, so a half-open code fence or `**`
 // never flickers. The element overrides put the answer on the Bureau tokens instead of Streamdown's
@@ -38,7 +38,7 @@ export function Markdown({ text, isStreaming }: { text: string; isStreaming: boo
 		<Streamdown
 			mode={isStreaming ? "streaming" : "static"}
 			isAnimating={isStreaming}
-			plugins={{ code }}
+			plugins={{ code: codeHighlighter }}
 			shikiTheme={["github-light", "github-dark"]}
 			controls={{ code: { download: false } }}
 			components={elements}
