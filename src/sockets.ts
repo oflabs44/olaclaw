@@ -3,7 +3,10 @@ import type { AgentEventStream } from "@earendil-works/pi-durable";
 import { type PiHarness, type PiSessionId, ROOT_SESSION } from "agents/harness/pi";
 import type { Connection } from "agents/lifecycle";
 import type { WebSocketMessage, WebSocketsOptions } from "agents/websockets";
+import type { Chats } from "./chats";
 import type { ServerMessage } from "./protocol";
+
+type ChatRegistry = Pick<Chats, "has" | "recordSubmit">;
 
 const SESSION_TAG_PREFIX = "pi-session:";
 const SESSION_QUERY = "session";
@@ -48,21 +51,31 @@ export class PiSessionSockets {
 	readonly #harness: PiHarness;
 	readonly #getWebSockets: () => WebSocket[];
 	readonly #getTags: (socket: WebSocket) => string[];
+	readonly #chats: ChatRegistry;
 	readonly #watches = new Map<WebSocket, AgentEventStream>();
 
 	constructor(
 		harness: PiHarness,
 		getWebSockets: () => WebSocket[],
 		getTags: (socket: WebSocket) => string[],
+		chats: ChatRegistry,
 	) {
 		this.#harness = harness;
 		this.#getWebSockets = getWebSockets;
 		this.#getTags = getTags;
+		this.#chats = chats;
+	}
+
+	// Pi also has conversations that subagent tools own; a socket may only follow a chat.
+	#chatFromRequest(request: Request): PiSessionId {
+		const session = sessionFromRequest(request);
+		if (!this.#chats.has(session)) throw new Error(`Session ${session} is not a chat`);
+		return session;
 	}
 
 	options(): WebSocketsOptions {
 		return {
-			getConnectionTags: (_connection, ctx) => [sessionTag(sessionFromRequest(ctx.request))],
+			getConnectionTags: (_connection, ctx) => [sessionTag(this.#chatFromRequest(ctx.request))],
 			handlers: {
 				onConnect: (connection, ctx) => this.#watch(connection, sessionFromRequest(ctx.request)),
 				onMessage: (connection, message) => this.#onMessage(connection, message),
@@ -138,13 +151,18 @@ export class PiSessionSockets {
 	): Promise<void> {
 		const handle = this.#harness.session(session);
 		switch (message?.type) {
-			case "submit":
+			case "submit": {
 				if (typeof message.text !== "string" || message.text.trim() === "") {
 					throw new Error("Prompt must be a non-empty string");
 				}
+				const text = message.text.trim();
+				// Before the submit, so the chat has its title by the time its first events go out;
+				// a failed submit still names the chat.
+				this.#chats.recordSubmit(session, text);
 				// Pi queues the input as a follow-up when the session is busy.
-				await handle.submit(message.text.trim());
+				await handle.submit(text);
 				return;
+			}
 			case "abort":
 				await handle.abort();
 				return;

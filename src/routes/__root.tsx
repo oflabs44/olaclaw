@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { PiSessionProvider } from "@/pi-session";
 import appCss from "@/styles.css?url";
 import { getThemePreference, SYSTEM_THEME_SCRIPT } from "@/theme";
 import { getChats, getNowPanel } from "@/workspace-data";
@@ -49,9 +48,9 @@ export const Route = createRootRoute({
 		const [theme, chats, now] = await Promise.all([getThemePreference(), getChats(), getNowPanel()]);
 		return { theme, chats, now };
 	},
-	// Chats and the Now panel are static placeholders today, so only a theme change (router.invalidate)
-	// needs a fresh root load. Revisit when they hold real data.
-	staleTime: Number.POSITIVE_INFINITY,
+	// This tab invalidates after its own chat changes. After 30 s the next navigation reloads, which
+	// picks up chats made on other devices.
+	staleTime: 30_000,
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
@@ -90,24 +89,22 @@ function RootDocument({ children }: { children: ReactNode }) {
  */
 function Workspace() {
 	return (
-		<PiSessionProvider>
-			<TooltipProvider>
-				<Toaster>
-					<div className="grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper wide:grid-rows-[auto_minmax(0,1fr)] wide:bg-chrome">
-						<Chrome />
-						<div className="flex min-h-0 min-w-0 bg-paper wide:mx-1.5 wide:gap-2.5 wide:rounded-t-card wide:px-2.5 wide:pt-2.5">
-							<LeftPane />
-							<main className="flex min-w-0 flex-1 flex-col bg-sheet max-wide:bg-paper wide:rounded-t-card wide:border wide:border-b-0 wide:border-line wide:shadow-float">
-								<Outlet />
-							</main>
-							<NowPane />
-						</div>
+		<TooltipProvider>
+			<Toaster>
+				<div className="grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper wide:grid-rows-[auto_minmax(0,1fr)] wide:bg-chrome">
+					<Chrome />
+					<div className="flex min-h-0 min-w-0 bg-paper wide:mx-1.5 wide:gap-2.5 wide:rounded-t-card wide:px-2.5 wide:pt-2.5">
+						<LeftPane />
+						<main className="flex min-w-0 flex-1 flex-col bg-sheet max-wide:bg-paper wide:rounded-t-card wide:border wide:border-b-0 wide:border-line wide:shadow-float">
+							<Outlet />
+						</main>
+						<NowPane />
 					</div>
-					<Omnibox />
-					<WorkspaceKeys />
-				</Toaster>
-			</TooltipProvider>
-		</PiSessionProvider>
+				</div>
+				<Omnibox />
+				<WorkspaceKeys />
+			</Toaster>
+		</TooltipProvider>
 	);
 }
 

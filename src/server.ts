@@ -1,11 +1,8 @@
 import { exports } from "cloudflare:workers";
 import handler from "@tanstack/react-start/server-entry";
-import { SOCKET_PATH } from "./protocol";
+import { AGENT_NAME, SOCKET_PATH } from "./protocol";
 
 export { PiAgent } from "./agent";
-
-// One agent object for the single user.
-const AGENT_NAME = "oladayo";
 
 export default {
 	fetch(request: Request) {

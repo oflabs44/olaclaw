@@ -9,11 +9,11 @@ import { useLoaderData } from "@tanstack/react-router";
 import { cn } from "cn";
 import type { ReactNode } from "react";
 import { ApprovalBlock } from "@/components/chat/approval-block";
-import { useRootChatTitle } from "@/components/chat/chat-title";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { SheetTitle } from "@/components/ui/sheet";
 import { usePiSession } from "@/pi-session";
 import type { ScheduledItem } from "@/workspace-data";
+import { useOpenChatTitle } from "./current-place";
 
 function Section({ title, icon, children }: { title: string; icon: IconSvgElement; children: ReactNode }) {
 	return (
@@ -59,7 +59,7 @@ function WorkingSection() {
 	const background = useLoaderData({ from: "__root__", select: (data) => data.now.working });
 	const isRunning = usePiSession((state) => state.running);
 	const runningToolName = usePiSession((state) => state.tools.at(-1)?.name);
-	const chatTitle = useRootChatTitle();
+	const chatTitle = useOpenChatTitle();
 
 	if (!isRunning && background.length === 0) return <SectionEmpty>Idle</SectionEmpty>;
 	return (
@@ -68,7 +68,7 @@ function WorkingSection() {
 				<li className={itemClass}>
 					<span className="flex min-w-0 items-center gap-2">
 						<Pulse />
-						<span className="truncate">Answering in “{chatTitle}”</span>
+						<span className="truncate">{chatTitle ? `Answering in “${chatTitle}”` : "Answering"}</span>
 					</span>
 					<small className="text-[0.82rem] text-ink-soft">
 						{runningToolName ? `Running ${runningToolName}` : "Writing"}

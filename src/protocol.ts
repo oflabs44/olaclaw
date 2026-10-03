@@ -4,6 +4,9 @@ import type { AgentEvent } from "@earendil-works/pi-durable";
 /** URL path of the chat socket. The Worker forwards upgrades on it to the user's object. */
 export const SOCKET_PATH = "agent-socket";
 
+/** The one agent object, for the single user. */
+export const AGENT_NAME = "oladayo";
+
 /** Client → server. */
 export type ClientMessage =
 	| { readonly type: "submit"; readonly text: string }

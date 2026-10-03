@@ -2,7 +2,6 @@ import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, type LinkProps, useLoaderData } from "@tanstack/react-router";
 import { useState } from "react";
-import { ROOT_CHAT_ID, useRootChatTitle } from "@/components/chat/chat-title";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -17,7 +16,6 @@ const closeOmnibox = (previous: WorkspaceSearch) => ({ ...previous, omni: undefi
 export function Omnibox() {
 	const omnibox = useOmnibox();
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
-	const rootChatTitle = useRootChatTitle();
 	const [query, setQuery] = useState("");
 
 	const destinations: Destination[] = [
@@ -27,7 +25,7 @@ export function Omnibox() {
 		{ key: "chats", label: "All chats", group: "Go to", to: "/chats" },
 		...chats.map((chat) => ({
 			key: `chat-${chat.id}`,
-			label: chat.id === ROOT_CHAT_ID ? rootChatTitle : chat.title,
+			label: chat.title,
 			group: "Chats",
 			to: "/chats/$chatId" as const,
 			params: { chatId: chat.id },

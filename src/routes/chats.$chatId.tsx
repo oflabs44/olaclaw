@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRootChatTitle } from "@/components/chat/chat-title";
 import { Composer } from "@/components/chat/composer";
 import { Conversation } from "@/components/chat/conversation";
 import { PageHeader } from "@/components/workspace/page-header";
-import { usePiSession } from "@/pi-session";
+import { PiSessionProvider, usePiSession } from "@/pi-session";
 import { getChat } from "@/workspace-data";
 
 export const Route = createFileRoute("/chats/$chatId")({
@@ -21,15 +20,19 @@ function WorkingIndicator() {
 	);
 }
 
-// Chat 1 is the root Pi session, the only one the socket follows so far.
 function ChatPage() {
-	const title = useRootChatTitle();
-	const isRunning = usePiSession((state) => state.running);
+	const chatId = Route.useParams({ select: (params) => params.chatId });
 	return (
-		<>
-			<PageHeader title={title} status={isRunning && <WorkingIndicator />} />
+		<PiSessionProvider key={chatId} chatId={chatId}>
+			<ChatHeader />
 			<Conversation />
 			<Composer />
-		</>
+		</PiSessionProvider>
 	);
+}
+
+function ChatHeader() {
+	const title = Route.useLoaderData({ select: (chat) => chat.title });
+	const isRunning = usePiSession((state) => state.running);
+	return <PageHeader title={title} status={isRunning && <WorkingIndicator />} />;
 }

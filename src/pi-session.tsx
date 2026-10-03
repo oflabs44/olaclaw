@@ -1,13 +1,16 @@
 // Adapted from Cloudflare's Pi harness example (MIT, Copyright (c) 2025 Cloudflare, Inc.).
+import { useRouter } from "@tanstack/react-router";
 import { createStore, useSelector } from "@tanstack/react-store";
 import { useAgent } from "agents/react";
-import { createContext, type ReactNode, use, useMemo } from "react";
+import { createContext, type ReactNode, use, useLayoutEffect, useMemo, useRef } from "react";
 import { type ClientMessage, type ServerMessage, SOCKET_PATH } from "./protocol";
 import { EMPTY_VIEW, type PiSessionView, reduceEvents } from "./view";
 
 export type ConnectionStatus = "connecting" | "open" | "closed";
 
 export type PiSessionState = PiSessionView & {
+	/** The chat the socket follows, or undefined when no chat is open. */
+	readonly chatId: string | undefined;
 	readonly status: ConnectionStatus;
 	/**
 	 * Texts this tab queued behind the running work, oldest first. Pi reports only how many
@@ -16,11 +19,20 @@ export type PiSessionState = PiSessionView & {
 	readonly queuedTexts: readonly string[];
 };
 
-const INITIAL_STATE: PiSessionState = { ...EMPTY_VIEW, status: "connecting", queuedTexts: [] };
+const INITIAL_STATE: PiSessionState = {
+	...EMPTY_VIEW,
+	chatId: undefined,
+	status: "connecting",
+	queuedTexts: [],
+};
 
 // Only the browser writes to this store (the socket opens in an effect), so the module-level
 // instance that SSR requests share always holds the initial state there.
 export const piSessionStore = createStore<PiSessionState>(INITIAL_STATE);
+
+// The provider mount that holds the store. Its socket's callbacks check it, so a late close from
+// a previous mount, even of the same chat (back/forward), cannot touch the current one.
+let storeOwner: object | undefined;
 
 export function usePiSession<Selected>(selector: (state: PiSessionState) => Selected): Selected {
 	return useSelector(piSessionStore, selector);
@@ -40,22 +52,44 @@ export function usePiCommands(): PiCommands {
 	return commands;
 }
 
-function setError(error: string) {
-	piSessionStore.setState((current) => ({ ...current, error }));
-}
-
 /**
- * The user's Pi session over the chat socket. The server sends Pi's own agent events and this
+ * One chat's Pi session over the chat socket. The server sends Pi's own agent events and this
  * folds them into the store. A reconnect gets a fresh snapshot, so there is nothing to resume from.
  */
-export function PiSessionProvider({ children }: { children: ReactNode }) {
+export function PiSessionProvider({ chatId, children }: { chatId: string; children: ReactNode }) {
+	const router = useRouter();
+	const owner = useRef({});
+
+	// The store belongs to one chat at a time. A layout effect claims it before the first paint,
+	// so the previous chat never shows. Router hooks cannot do this: they skip hydration, and
+	// onStay also fires on search changes.
+	useLayoutEffect(() => {
+		storeOwner = owner.current;
+		piSessionStore.setState(() => ({ ...INITIAL_STATE, chatId }));
+		return () => {
+			if (storeOwner !== owner.current) return;
+			storeOwner = undefined;
+			piSessionStore.setState(() => INITIAL_STATE);
+		};
+	}, [chatId]);
+
+	function update(change: (current: PiSessionState) => PiSessionState) {
+		if (storeOwner !== owner.current) return;
+		piSessionStore.setState(change);
+	}
+
+	function setError(error: string) {
+		update((current) => ({ ...current, error }));
+	}
+
 	// The socket opens in an effect, so it never connects during SSR. `basePath`
 	// replaces the `/agents/:class/:name` URL: the server selects the object.
 	const agent = useAgent({
 		agent: "PiAgent",
 		basePath: SOCKET_PATH,
-		onOpen: () => piSessionStore.setState((current) => ({ ...current, status: "open" })),
-		onClose: () => piSessionStore.setState((current) => ({ ...current, status: "closed" })),
+		query: { session: chatId },
+		onOpen: () => update((current) => ({ ...current, status: "open" })),
+		onClose: () => update((current) => ({ ...current, status: "closed" })),
 		onMessage: (event) => {
 			let message: ServerMessage | { error: unknown } | null;
 			try {
@@ -74,16 +108,19 @@ export function PiSessionProvider({ children }: { children: ReactNode }) {
 			switch (message.type) {
 				case "events": {
 					const events = message.events;
-					const changesInbox = events.some(
-						(agentEvent) => agentEvent.type === "inbox_update" || agentEvent.type === "snapshot",
-					);
-					piSessionStore.setState((current) => {
+					const hasSnapshot = events.some((agentEvent) => agentEvent.type === "snapshot");
+					const changesInbox =
+						hasSnapshot || events.some((agentEvent) => agentEvent.type === "inbox_update");
+					const wasEmpty = piSessionStore.state.messages.length === 0;
+					update((current) => {
 						const next = { ...current, ...reduceEvents(current, events) };
 						if (!changesInbox) return next;
 						// Pi takes queued items from the front, so the oldest known texts go first.
 						const texts = current.queuedTexts;
 						return { ...next, queuedTexts: texts.slice(Math.max(0, texts.length - next.queued)) };
 					});
+					// The first message names the chat on the server, so the lists need the new title.
+					if (wasEmpty && !hasSnapshot && piSessionStore.state.messages.length > 0) void router.invalidate();
 					return;
 				}
 				case "error":

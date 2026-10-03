@@ -5,13 +5,14 @@ import {
 	PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { Link, useLoaderData } from "@tanstack/react-router";
+import { Link, useLoaderData, useNavigate, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
-import { ROOT_CHAT_ID, useRootChatTitle } from "@/components/chat/chat-title";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { type ConnectionStatus, usePiSession } from "@/pi-session";
 import type { WorkspaceSearch } from "@/routes/__root";
+import { createChat } from "@/workspace-data";
 import { ThemeToggle } from "./theme-toggle";
 
 const navLinkClass =
@@ -46,10 +47,8 @@ function ChatLink({
 	title,
 	closesDrawer,
 }: { chatId: string; title: string; closesDrawer: boolean }) {
-	const rootChatTitle = useRootChatTitle();
-	const isRunning = usePiSession((state) => state.running);
-	// Chat 1 is the root Pi session: the only chat with a live socket.
-	const isRootChat = chatId === ROOT_CHAT_ID;
+	// Only the open chat has a socket, so only it can show a run.
+	const isRunning = usePiSession((state) => state.chatId === chatId && state.running);
 	return (
 		<Link
 			to="/chats/$chatId"
@@ -60,8 +59,8 @@ function ChatLink({
 				"pl-[2.35rem] font-normal text-ink-soft data-[status=active]:text-ink",
 			)}
 		>
-			<span className="min-w-0 truncate">{isRootChat ? rootChatTitle : title}</span>
-			{isRootChat && isRunning && (
+			<span className="min-w-0 truncate">{title}</span>
+			{isRunning && (
 				<>
 					<span className="size-1.5 shrink-0 animate-stamp rounded-full bg-primary" aria-hidden="true" />
 					<span className="sr-only">, working</span>
@@ -74,7 +73,28 @@ function ChatLink({
 /** The left pane: where you are. The same content fills the phone drawer. */
 export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
-	const status = usePiSession((state) => state.status);
+	// The connection status belongs to the open chat's socket.
+	const status = usePiSession((state) => (state.chatId === undefined ? undefined : state.status));
+	const router = useRouter();
+	const navigate = useNavigate();
+
+	// A second tap while the first one runs would make a second chat, and chats cannot be deleted yet.
+	const [isStartingChat, setIsStartingChat] = useState(false);
+
+	async function startChat() {
+		if (isStartingChat) return;
+		setIsStartingChat(true);
+		try {
+			const chat = await createChat();
+			await router.invalidate();
+			await navigate({ to: "/chats/$chatId", params: { chatId: chat.id }, search: linkSearch(closesDrawer) });
+		} catch (error) {
+			console.error("Cannot create chat", error);
+			toast.add({ title: "Could not start a chat", description: "Try again in a moment." });
+		} finally {
+			setIsStartingChat(false);
+		}
+	}
 
 	return (
 		<nav aria-label="Workspace" className="flex h-full flex-col gap-5">
@@ -108,15 +128,20 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 			<Button
 				variant="quiet"
 				className="mx-1.5"
-				onClick={() => toast.add({ title: "Not wired yet", description: "New chats come later." })}
+				disabled={isStartingChat}
+				onClick={startChat}
 			>
 				<HugeiconsIcon icon={PlusSignIcon} size={18} strokeWidth={1.5} />
 				New chat
 			</Button>
 			<div className="mt-auto flex items-center justify-between px-2">
 				<p className="flex items-center gap-2 text-[0.85rem] text-ink-soft" role="status">
-					<span className={cn("size-[0.45rem] rounded-full", STATUS_DOTS[status])} aria-hidden="true" />
-					{STATUS_LABELS[status]}
+					{status && (
+						<>
+							<span className={cn("size-[0.45rem] rounded-full", STATUS_DOTS[status])} aria-hidden="true" />
+							{STATUS_LABELS[status]}
+						</>
+					)}
 				</p>
 				<ThemeToggle />
 			</div>
