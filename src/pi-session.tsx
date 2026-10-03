@@ -119,8 +119,14 @@ export function PiSessionProvider({ chatId, children }: { chatId: string; childr
 						const texts = current.queuedTexts;
 						return { ...next, queuedTexts: texts.slice(Math.max(0, texts.length - next.queued)) };
 					});
-					// The first message names the chat on the server, so the lists need the new title.
-					if (wasEmpty && !hasSnapshot && piSessionStore.state.messages.length > 0) void router.invalidate();
+					// The first message names the chat on the server, so the lists need the new title; by
+					// the end of that first run the model-written title has usually replaced it.
+					const messages = piSessionStore.state.messages;
+					const isFirstRun = messages.filter((message) => message.role === "user").length === 1;
+					const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
+					if (!hasSnapshot && isFirstRun && ((wasEmpty && messages.length > 0) || runEnded)) {
+						void router.invalidate();
+					}
 					return;
 				}
 				case "error":

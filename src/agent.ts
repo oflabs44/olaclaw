@@ -52,7 +52,7 @@ export class PiAgent extends DurableObject<Env> {
 		defaults: { model: this.models[DEFAULT_MODEL] },
 	});
 
-	readonly chats = new Chats(this.ctx.storage.sql, this.harness);
+	readonly chats = new Chats(this.ctx.storage.sql, this.harness, (firstMessage) => this.nameChat(firstMessage));
 
 	readonly sessionSockets = new PiSessionSockets(
 		this.harness,
@@ -75,6 +75,27 @@ export class PiAgent extends DurableObject<Env> {
 
 	createChat(): Promise<ChatSummary> {
 		return this.chats.create();
+	}
+
+	/** A short title for a chat, from its first message, by the smallest Claude model. */
+	async nameChat(firstMessage: string): Promise<string> {
+		const answer = await this.ai.completeSimple(
+			this.ai(ANTHROPIC_MODELS["claude-haiku-4-5"]),
+			{
+				systemPrompt:
+					"You name chats. Write a title of at most five words for a chat that starts with the user's message, in the message's language. Reply with the title only: no quotes, no period.",
+				messages: [{ role: "user", content: firstMessage.slice(0, 2_000), timestamp: Date.now() }],
+			},
+			{ maxTokens: 30 },
+		);
+		const title = answer.content
+			.map((block) => (block.type === "text" ? block.text : ""))
+			.join("")
+			.trim()
+			.replace(/^["'“„]+|["'”]+$/g, "")
+			.replace(/\.$/, "");
+		if (title.length === 0 || title.length > 60) throw new Error(`Unusable title ${JSON.stringify(title)}`);
+		return title;
 	}
 
 	async setChatModel(chatId: string, model: string): Promise<void> {

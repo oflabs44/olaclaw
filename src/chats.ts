@@ -33,10 +33,12 @@ function urlsIn(text: string): string[] {
 export class Chats {
 	readonly #sql: SqlStorage;
 	readonly #harness: PiHarness;
+	readonly #nameChat: (firstMessage: string) => Promise<string>;
 
-	constructor(sql: SqlStorage, harness: PiHarness) {
+	constructor(sql: SqlStorage, harness: PiHarness, nameChat: (firstMessage: string) => Promise<string>) {
 		this.#sql = sql;
 		this.#harness = harness;
+		this.#nameChat = nameChat;
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS chat (session_id TEXT PRIMARY KEY, title TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 		);
@@ -96,12 +98,27 @@ export class Chats {
 
 	/** Marks the chat as recently used, names it from its first message, and keeps the URLs it gives. */
 	recordSubmit(session: PiSessionId, text: string): void {
-		this.#sql.exec(
-			"UPDATE chat SET title = COALESCE(title, ?), updated_at = ? WHERE session_id = ?",
-			titleFromText(text),
+		const provisionalTitle = titleFromText(text);
+		const named = this.#sql.exec(
+			"UPDATE chat SET title = COALESCE(title, ?), updated_at = ? WHERE session_id = ? RETURNING title",
+			provisionalTitle,
 			Date.now(),
 			session,
 		);
+		// The first line stands in until a small model writes a real title. Replace only the stand-in,
+		// so a title set in the meantime wins; the chat works the same if naming fails.
+		if (named.one().title === provisionalTitle) {
+			void this.#nameChat(text)
+				.then((title) => {
+					this.#sql.exec(
+						"UPDATE chat SET title = ? WHERE session_id = ? AND title = ?",
+						title,
+						session,
+						provisionalTitle,
+					);
+				})
+				.catch((error) => console.error(`Cannot name chat ${session}`, error));
+		}
 		for (const url of urlsIn(text)) {
 			this.#sql.exec("INSERT OR IGNORE INTO given_url (session_id, url) VALUES (?, ?)", session, url);
 		}
