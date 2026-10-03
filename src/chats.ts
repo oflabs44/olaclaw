@@ -48,8 +48,9 @@ export class Chats {
 			.toArray()
 			.some((column) => column.name === "model");
 		if (!hasModel) sql.exec("ALTER TABLE chat ADD COLUMN model TEXT NOT NULL DEFAULT 'kimi-k2.7'");
-		// URLs Oladayo typed in a chat: the only ones `fetch_url` may fetch there, so a fetched page
-		// cannot talk the model into sending data elsewhere.
+		// URLs Oladayo typed in a chat, plus the results of a web_search there: the only ones `fetch_url`
+		// may fetch in that chat. A fetched page cannot name a URL to send data to; it can at most make the
+		// model search, and the query text is guarded only by the prompt.
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS given_url (session_id TEXT NOT NULL, url TEXT NOT NULL, PRIMARY KEY (session_id, url))",
 		);
@@ -120,6 +121,13 @@ export class Chats {
 				.catch((error) => console.error(`Cannot name chat ${session}`, error));
 		}
 		for (const url of urlsIn(text)) {
+			this.#sql.exec("INSERT OR IGNORE INTO given_url (session_id, url) VALUES (?, ?)", session, url);
+		}
+	}
+
+	/** Makes the results of a web search fetchable in the chat. Expects URLs normalised through `URL`. */
+	recordFoundUrls(session: PiSessionId, urls: readonly string[]): void {
+		for (const url of urls) {
 			this.#sql.exec("INSERT OR IGNORE INTO given_url (session_id, url) VALUES (?, ?)", session, url);
 		}
 	}

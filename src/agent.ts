@@ -19,7 +19,12 @@ import { memoryExtension } from "./tools/memory";
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
 
 export class PiAgent extends DurableObject<Env> {
-	readonly ai = createAI({ binding: this.env.AI, id: "homey" });
+	// The gateway retries a burst-limited vendor call itself; only a request that still fails falls back to Kimi.
+	readonly ai = createAI({
+		binding: this.env.AI,
+		id: "homey",
+		retries: { maxAttempts: 3, retryDelayMs: 1_000, backoff: "exponential" },
+	});
 	// Kimi answers when a Claude request fails before any output, for example when the gateway credits
 	// run out. The answer then carries a fallback diagnostic, which the chat shows under the message.
 	readonly models: Record<ModelId, Model<Api>> = {
@@ -47,7 +52,7 @@ export class PiAgent extends DurableObject<Env> {
 			);
 			this.registry.install(instructions);
 			this.registry.install(memoryExtension(this.memory));
-			this.registry.install(toolsExtension(this.chats, this.approvals));
+			this.registry.install(toolsExtension(this.env.AI, this.chats, this.approvals));
 			this.registry.install(clock);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},

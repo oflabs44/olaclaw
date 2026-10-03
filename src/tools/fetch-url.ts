@@ -9,7 +9,7 @@ const MAX_BODY_BYTES = 1_000_000;
 const USER_AGENT = "olaclaw/1.0 (personal assistant; +https://ai.fagbemi.me)";
 const MAX_REDIRECTS = 5;
 
-function errorResult(reason: string) {
+export function errorResult(reason: string) {
 	return { content: [{ type: "text" as const, text: reason }], isError: true };
 }
 
@@ -128,16 +128,17 @@ function isTextual(contentType: string): boolean {
 }
 
 /**
- * Fetching is limited to URLs Oladayo typed in the chat. A fetched page is untrusted text: without
- * this limit it could tell the model to send what it knows to another address.
+ * Fetching is limited to URLs Oladayo typed in the chat and the results of a web_search there. A
+ * fetched page is untrusted text: without this limit it could tell the model to send what it knows
+ * to another address.
  */
 export function fetchUrlTool(chats: Pick<Chats, "gaveUrl">) {
 	return defineTool({
 		name: "fetch_url",
 		description:
-			"Fetch a web page or file by a URL Oladayo wrote in this chat and return its readable text (HTML is reduced to plain text, at most about 20 000 bytes). Other URLs are refused, including links found on a fetched page. Only http and https.",
+			"Fetch a web page or file and return its readable text (HTML is reduced to plain text, at most about 20 000 bytes). The URL must be one Oladayo wrote or a web_search result in this chat. Other URLs are refused, including links found on a fetched page. Only http and https.",
 		parameters: Type.Object({
-			url: Type.String({ description: "The full http or https URL, exactly as Oladayo wrote it." }),
+			url: Type.String({ description: "The full http or https URL, exactly as Oladayo wrote it or as web_search returned it." }),
 		}),
 		replay: "safe",
 		outputLimits: { maxBytes: MAX_OUTPUT_BYTES },
@@ -149,7 +150,7 @@ export function fetchUrlTool(chats: Pick<Chats, "gaveUrl">) {
 				return errorResult(`Not a valid URL: ${url}`);
 			}
 			if (!chats.gaveUrl(String(api.conversationId), target.href)) {
-				return errorResult(`Refused: Oladayo did not give ${target.href} in this chat. Ask him for the URL.`);
+				return errorResult(`Refused: ${target.href} is not a URL Oladayo wrote or a web_search result in this chat. Ask him for the URL or search for the page.`);
 			}
 
 			const timeout = AbortSignal.timeout(TIMEOUT_MILLISECONDS);
