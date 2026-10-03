@@ -4,7 +4,7 @@ import { TIME_ZONE } from "../instructions";
 import type { Memory, MemoryEntry } from "../memory";
 
 const GUIDANCE =
-	"What you know about Oladayo and his world. Use `recall` before answering about prior work, people, dates, or decisions. Add to it with `remember`; fix wrong entries with `forget` and `remember`.";
+	"What you know about Oladayo and his world. Use `recall` before answering about prior work, people, dates, or decisions. Add to it with `remember`; fix wrong entries with `forget` and `remember`. A fact is one sentence about one durable thing; update a fact instead of adding a near-duplicate. Preferences Oladayo states in chat, such as how long or in which language to answer, are facts too: store them and follow them from the next turn.";
 
 function textContent(value: string) {
 	return [{ type: "text" as const, text: value }];

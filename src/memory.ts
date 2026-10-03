@@ -19,6 +19,17 @@ function likePattern(word: string): string {
 	return `%${word.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
 }
 
+// The profile that lived in the system prompt before memory existed. Each line is seeded once,
+// by its text; from then on Phoebe maintains it, and a forgotten seed stays forgotten.
+const SEED_FACTS = [
+	"Oladayo works at Axel Springer as a senior full-stack engineer.",
+	"Oladayo's main stack is TypeScript, Svelte, React, Node.js, and Bun; secondary: Go, PHP, Laravel.",
+	"Oladayo volunteers at GeTu Prospects e.V., a German association.",
+	"Oladayo lives in Germany.",
+	"Oladayo's family: Olawumi and Lois.",
+	"Oladayo keeps passwords, secrets, and SSH keys in 1Password.",
+];
+
 /**
  * What Phoebe remembers. Facts are curated and go into every system prompt; notes are dated
  * working context found only through `recall`. Forgetting supersedes an entry and keeps the row.
@@ -31,6 +42,15 @@ export class Memory {
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS memory (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL CHECK(kind IN ('fact','note')), text TEXT NOT NULL CHECK(length(trim(text)) > 0), created_at INTEGER NOT NULL, superseded_at INTEGER NULL)",
 		);
+		const now = Date.now();
+		for (const text of SEED_FACTS) {
+			sql.exec(
+				"INSERT INTO memory (kind, text, created_at) SELECT 'fact', ?, ? WHERE NOT EXISTS (SELECT 1 FROM memory WHERE text = ?)",
+				text,
+				now,
+				text,
+			);
+		}
 	}
 
 	/** Active facts, oldest first, so the prompt stays stable as facts are added. */
