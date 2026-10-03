@@ -61,6 +61,10 @@
 	--radius: var(--radius);
 	--radius-sm: var(--radius-sm);
 	--radius-card: var(--card-radius);
+	/* Streamdown's blocks use md, lg and xl; all of them take the app's surface radius. */
+	--radius-md: var(--radius);
+	--radius-lg: var(--radius);
+	--radius-xl: var(--radius);
 	--shadow-*: initial;
 	--shadow-float: var(--float-shadow);
 	--inset-shadow-chip: inset 0 1px 0 color-mix(in oklab, white 12%, transparent),
