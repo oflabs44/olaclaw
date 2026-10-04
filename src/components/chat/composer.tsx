@@ -63,7 +63,7 @@ function ModelSheet({ model, onChange }: { model: ModelId; onChange: (next: Mode
 		<Sheet open={isOpen} onOpenChange={setIsOpen}>
 			<SheetTrigger
 				render={
-					<Button aria-label="Model" className="bg-wash text-ink">
+					<Button aria-label="Model" className="h-9 bg-wash px-3 text-[13px] text-ink touch:h-9">
 						{current?.label}
 						<HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.5} className="opacity-60" />
 					</Button>
