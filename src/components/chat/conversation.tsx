@@ -25,6 +25,47 @@ function collectToolResults(messages: readonly PiMessage[]) {
 	return results;
 }
 
+type Row = {
+	key: string;
+	message: PiMessage;
+	/** Index in `messages` of the last message in the row; -1 for the live message alone. */
+	lastIndex: number;
+	isLive: boolean;
+};
+
+/**
+ * One row per prompt and one per answer. Pi stores an answer with tool calls as several assistant
+ * messages with the tool results between them; the row joins their parts so the steps fold into
+ * one line. The joined message keeps the id of its last part, which is where a branch starts.
+ */
+function toRows(messages: readonly PiMessage[], live: PiMessage | null): Row[] {
+	const rows: Row[] = [];
+	let openAnswer: Row | undefined;
+
+	function addAnswer(message: PiMessage, index: number, isLive: boolean) {
+		if (openAnswer) {
+			openAnswer.message = { ...message, parts: [...openAnswer.message.parts, ...message.parts] };
+			openAnswer.lastIndex = index;
+			openAnswer.isLive = isLive;
+			return;
+		}
+		openAnswer = { key: message.id, message, lastIndex: index, isLive };
+		rows.push(openAnswer);
+	}
+
+	messages.forEach((message, index) => {
+		if (message.role === "assistant") {
+			addAnswer(message, index, false);
+			return;
+		}
+		if (message.role === "tool") return;
+		openAnswer = undefined;
+		rows.push({ key: message.id, message, lastIndex: index, isLive: false });
+	});
+	if (live) addAnswer(live, -1, true);
+	return rows;
+}
+
 function WaitingLine() {
 	const retry = usePiSession((state) => state.retry);
 	return (
@@ -114,8 +155,9 @@ export function Conversation() {
 						</Empty>
 					)}
 					{forkIndex === -1 && messages.length > 0 && forkDivider}
-					{messages.map((message, index) => {
-						const className = index <= forkIndex ? fromParentClass : undefined;
+					{toRows(messages, live).map(({ key, message, lastIndex, isLive }, rowIndex, rows) => {
+						const className = !isLive && lastIndex <= forkIndex ? fromParentClass : undefined;
+						const firstIndex = rowIndex === 0 ? 0 : rows[rowIndex - 1].lastIndex + 1;
 						let row: ReactNode = null;
 						switch (message.role) {
 							case "user":
@@ -125,8 +167,8 @@ export function Conversation() {
 								row = (
 									<AssistantMessage
 										message={message}
-										isLive={false}
-										isRunNow={isRunning && index > currentTurnStart}
+										isLive={isLive}
+										isRunNow={isRunning && (isLive || lastIndex > currentTurnStart)}
 										toolResults={toolResults}
 										runningToolOutput={runningToolOutput}
 										className={className}
@@ -142,25 +184,15 @@ export function Conversation() {
 								);
 								break;
 							case "tool":
-								// Tool results show inside the tool call they answer.
 								break;
 						}
 						return (
-							<Fragment key={message.id}>
+							<Fragment key={key}>
 								{row}
-								{index === forkIndex && forkDivider}
+								{forkIndex >= firstIndex && forkIndex <= lastIndex && forkDivider}
 							</Fragment>
 						);
 					})}
-					{live && (
-						<AssistantMessage
-							message={live}
-							isLive
-							isRunNow={isRunning}
-							toolResults={toolResults}
-							runningToolOutput={runningToolOutput}
-						/>
-					)}
 					{isRunning && !live && runningTools.length === 0 && <WaitingLine />}
 				</div>
 			</div>

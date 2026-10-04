@@ -3,10 +3,11 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import { type ReactNode, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { ASK_TOOL } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePiCommands } from "@/pi-session";
 import type { PiMessage, PiMessagePart } from "@/transcript";
 import { forkChat } from "@/workspace-data";
@@ -29,7 +30,7 @@ const chatRoute = getRouteApi("/chats/$chatId");
 
 const rowTriggerClass =
 	"group flex w-fit max-w-full cursor-pointer items-center gap-2 -ml-[0.6rem] rounded-full px-[0.6rem] py-[0.3rem] " +
-	"text-[13px] text-ink-soft transition-colors select-none hover:bg-wash hover:text-ink touch:min-h-11";
+	"text-[13px] text-ink-soft transition-colors select-none hover:bg-wash hover:text-ink touch:min-h-11 max-wide:text-[14px]";
 
 function Chevron() {
 	return (
@@ -119,6 +120,57 @@ function ToolRow({
 	);
 }
 
+type StepPart = Extract<PiMessagePart, { type: "thinking" }> | ToolCall;
+
+function stepLabel(part: StepPart) {
+	return part.type === "thinking" ? "Reasoning" : part.name;
+}
+
+/** Several steps in one row: "web_search · fetch_url", with the rows inside. */
+function Steps({
+	parts,
+	toolResults,
+	isLive,
+	isRunNow,
+	children,
+}: {
+	parts: StepPart[];
+	toolResults: ReadonlyMap<string, ToolResult>;
+	isLive: boolean;
+	isRunNow: boolean;
+	children: ReactNode;
+}) {
+	// The tools, each once, in order; reasoning on its own only when there was nothing else.
+	const toolNames = [...new Set(parts.flatMap((part) => (part.type === "tool-call" ? [part.name] : [])))];
+	const labels = toolNames.length > 0 ? toolNames : ["Reasoning"];
+	const hasError = parts.some((part) => part.type === "tool-call" && toolResults.get(part.id)?.error);
+	const lastPart = parts.at(-1);
+	const liveLabel = lastPart?.type === "thinking" ? "Thinking" : lastPart ? `${stepLabel(lastPart)}…` : "";
+	const isStopped = !isLive && !isRunNow && parts.some((part) => part.type === "tool-call" && !toolResults.has(part.id));
+
+	return (
+		// Open while it streams, then closed; the key remounts it so the default applies again.
+		<Collapsible key={isLive ? "streaming" : "done"} defaultOpen={isLive}>
+			<CollapsibleTrigger className={cn(rowTriggerClass, "text-ink")}>
+				<span
+					className={cn(
+						"size-[0.45rem] shrink-0 rounded-full",
+						isLive && "animate-stamp-fast bg-primary",
+						!isLive && hasError && "bg-danger",
+						!isLive && !hasError && (isStopped ? "bg-ink-faint" : "bg-accent"),
+					)}
+					aria-hidden="true"
+				/>
+				<span className={cn("truncate", isLive && "text-shimmer")}>{isLive ? liveLabel : labels.join(" · ")}</span>
+				<Chevron />
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				<div className="my-1 grid gap-1.5 border-l-2 border-line pl-[0.95rem]">{children}</div>
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
 /** The question of an `ask` call. Undefined when the arguments are not what the tool takes. */
 function askedQuestion(call: ToolCall): ApprovalQuestion | undefined {
 	const args = call.arguments;
@@ -197,10 +249,19 @@ function BranchButton({ entryId }: { entryId: string }) {
 	}
 
 	return (
-		<Button disabled={isBranching} onClick={branch}>
+		<ActionButton label="Branch" disabled={isBranching} onClick={branch}>
 			<HugeiconsIcon icon={GitBranchIcon} size={17} strokeWidth={1.5} />
-			Branch
-		</Button>
+		</ActionButton>
+	);
+}
+
+/** An icon-only row action; the label is for screen readers and the tooltip. */
+function ActionButton({ label, ...props }: Omit<ButtonProps, "icon" | "aria-label"> & { label: string }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger render={<Button icon aria-label={label} {...props} />} />
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -216,10 +277,9 @@ function MessageActions({ text, entryId }: { text: string; entryId: string }) {
 
 	return (
 		<div className={actionRowClass}>
-			<Button onClick={copy}>
+			<ActionButton label="Copy" onClick={copy}>
 				<HugeiconsIcon icon={Copy01Icon} size={17} strokeWidth={1.5} />
-				Copy
-			</Button>
+			</ActionButton>
 			<BranchButton entryId={entryId} />
 		</div>
 	);
@@ -240,7 +300,7 @@ export function UserMessage({ message, className }: { message: PiMessage; classN
 				className,
 			)}
 		>
-			<p className="max-w-[78%] rounded-[8px_8px_4px_8px] bg-wash px-[0.9rem] py-[0.6rem] whitespace-pre-wrap [overflow-wrap:anywhere] max-wide:max-w-[88%]">
+			<p className="max-w-[78%] rounded-[8px_8px_4px_8px] bg-wash-strong px-[0.9rem] py-[0.6rem] whitespace-pre-wrap [overflow-wrap:anywhere] max-wide:max-w-[88%] max-wide:text-[17px] max-wide:leading-[1.55]">
 				{message.parts.map(userPartText).join("")}
 			</p>
 			<div className={actionRowClass}>
@@ -271,46 +331,85 @@ export function AssistantMessage({
 		.trim();
 	const lastPart = message.parts.at(-1);
 
-	return (
-		<article className={cn("group/message grid gap-1.5", className)}>
-			{message.parts.map((part, index) => {
-				const isLastPart = index === message.parts.length - 1;
-				switch (part.type) {
-					case "thinking":
-						return <Reasoning key={index} text={part.text} isStreaming={isLive && isLastPart} />;
-					case "tool-call": {
-						// `ask` waits for a choice while it runs. Once answered it shows as any other tool call.
-						const isWaiting = !toolResults.has(part.id) && runningToolOutput.has(part.id);
-						const approval = part.name === ASK_TOOL && isWaiting ? askedQuestion(part) : undefined;
-						if (approval) return <AskBlock key={part.id} call={part} approval={approval} />;
-						return (
-							<ToolRow
-								key={part.id}
-								call={part}
-								result={toolResults.get(part.id)}
-								runningOutput={runningToolOutput.get(part.id)}
-								isRunNow={isRunNow}
-							/>
-						);
-					}
-					case "text":
-						if (part.text === "" && !(isLive && isLastPart)) return null;
-						return (
-							<div key={index} className="min-w-0 [overflow-wrap:anywhere]">
-								<Markdown text={part.text} isStreaming={isLive && isLastPart} />
-								{isLive && isLastPart && <StreamingCursor />}
-							</div>
-						);
-					case "image":
-						return (
-							<p key={index} className="text-ink-soft">
-								[image]
-							</p>
-						);
-					case "tool-result":
-						return null;
+	// Reasoning and tool calls that follow each other fold into one Steps row, so the answer is
+	// not pushed down by one line per step. An `ask` that waits for a choice stands on its own.
+	const blocks: ReactNode[] = [];
+	let steps: StepPart[] = [];
+
+	function flushSteps() {
+		if (steps.length === 0) return;
+		const group = steps;
+		steps = [];
+		const isGroupLive = isLive && group.at(-1) === lastPart;
+		const rows = group.map((part) =>
+			part.type === "thinking" ? (
+				<Reasoning key={message.parts.indexOf(part)} text={part.text} isStreaming={isGroupLive && part === lastPart} />
+			) : (
+				<ToolRow
+					key={part.id}
+					call={part}
+					result={toolResults.get(part.id)}
+					runningOutput={runningToolOutput.get(part.id)}
+					isRunNow={isRunNow}
+				/>
+			),
+		);
+		blocks.push(
+			group.length === 1 ? (
+				rows[0]
+			) : (
+				<Steps key={`steps-${message.parts.indexOf(group[0])}`} parts={group} toolResults={toolResults} isLive={isGroupLive} isRunNow={isRunNow}>
+					{rows}
+				</Steps>
+			),
+		);
+	}
+
+	message.parts.forEach((part, index) => {
+		const isLastPart = index === message.parts.length - 1;
+		switch (part.type) {
+			case "thinking":
+				steps.push(part);
+				return;
+			case "tool-call": {
+				// `ask` waits for a choice while it runs. Once answered it shows as any other tool call.
+				const isWaiting = !toolResults.has(part.id) && runningToolOutput.has(part.id);
+				const approval = part.name === ASK_TOOL && isWaiting ? askedQuestion(part) : undefined;
+				if (!approval) {
+					steps.push(part);
+					return;
 				}
-			})}
+				flushSteps();
+				blocks.push(<AskBlock key={part.id} call={part} approval={approval} />);
+				return;
+			}
+			case "text":
+				if (part.text === "" && !(isLive && isLastPart)) return;
+				flushSteps();
+				blocks.push(
+					<div key={index} className="min-w-0 [overflow-wrap:anywhere]">
+						<Markdown text={part.text} isStreaming={isLive && isLastPart} />
+						{isLive && isLastPart && <StreamingCursor />}
+					</div>,
+				);
+				return;
+			case "image":
+				flushSteps();
+				blocks.push(
+					<p key={index} className="text-ink-soft">
+						[image]
+					</p>,
+				);
+				return;
+			case "tool-result":
+				return;
+		}
+	});
+	flushSteps();
+
+	return (
+		<article className={cn("group/message grid gap-1.5 [&>*]:min-w-0", className)}>
+			{blocks}
 			{isLive && lastPart?.type !== "text" && lastPart?.type !== "thinking" && (
 				<p>
 					<StreamingCursor />

@@ -1,10 +1,12 @@
-import { ArrowDown01Icon, ArrowUp01Icon, StopIcon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, ArrowUp01Icon, StopIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { type KeyboardEvent, type SubmitEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useIsPhone } from "@/components/workspace/panels";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { MODELS, type ModelId } from "@/models";
@@ -20,6 +22,7 @@ function ModelPicker() {
 	const router = useRouter();
 	const chatId = chatRoute.useParams({ select: (params) => params.chatId });
 	const model = chatRoute.useLoaderData({ select: (chat) => chat.model });
+	const isPhone = useIsPhone();
 
 	async function changeModel(next: ModelId | null) {
 		if (next === null || next === model) return;
@@ -31,6 +34,8 @@ function ModelPicker() {
 			toast.add({ title: "Could not change the model", description: "Try again in a moment." });
 		}
 	}
+
+	if (isPhone) return <ModelSheet model={model} onChange={changeModel} />;
 
 	return (
 		<Select items={MODEL_ITEMS} value={model} onValueChange={changeModel}>
@@ -46,6 +51,54 @@ function ModelPicker() {
 				))}
 			</SelectContent>
 		</Select>
+	);
+}
+
+/** The phone picker: a bottom sheet with one row per model, within reach of a thumb. */
+function ModelSheet({ model, onChange }: { model: ModelId; onChange: (next: ModelId) => Promise<void> }) {
+	const [isOpen, setIsOpen] = useState(false);
+	const current = MODELS.find((candidate) => candidate.id === model);
+
+	return (
+		<Sheet open={isOpen} onOpenChange={setIsOpen}>
+			<SheetTrigger
+				render={
+					<Button aria-label="Model" className="bg-wash text-ink">
+						{current?.label}
+						<HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={1.5} className="opacity-60" />
+					</Button>
+				}
+			/>
+			<SheetContent className="px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] data-[swipe-direction=down]:h-auto">
+				<span className="mx-auto mt-0.5 mb-1.5 block h-1 w-10 shrink-0 rounded-full bg-line-strong" aria-hidden="true" />
+				<SheetTitle className="px-3 py-2 text-center">Model</SheetTitle>
+				<ul role="listbox" aria-label="Model">
+					{MODELS.map((candidate) => {
+						const isChosen = candidate.id === model;
+						return (
+							<li key={candidate.id}>
+								<button
+									type="button"
+									role="option"
+									aria-selected={isChosen}
+									onClick={() => {
+										setIsOpen(false);
+										void onChange(candidate.id);
+									}}
+									className="flex w-full cursor-pointer items-center gap-3 rounded px-3 py-3 text-left active:bg-wash"
+								>
+									<span className="min-w-0 flex-1">
+										<span className="block text-[16px]">{candidate.label}</span>
+										<span className="block text-[13px] text-ink-soft">{candidate.note}</span>
+									</span>
+									{isChosen && <HugeiconsIcon icon={Tick02Icon} size={18} strokeWidth={1.5} className="shrink-0" />}
+								</button>
+							</li>
+						);
+					})}
+				</ul>
+			</SheetContent>
+		</Sheet>
 	);
 }
 

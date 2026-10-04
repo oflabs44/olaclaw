@@ -1,6 +1,13 @@
 import { Streamdown } from "streamdown";
 import { codeHighlighter } from "./code-highlighter";
 
+// A bare URL has no break opportunities, so a long one would break mid-word. Allow a break after
+// each separator and before each dot instead; the text stays the same for copy and screen readers.
+function breakableUrl(text: string) {
+	if (!/^\w+:\/\//.test(text)) return text;
+	return text.split(/(?<=[/_\-?&=#])|(?=\.)/).flatMap((piece, index) => (index === 0 ? [piece] : [<wbr key={index} />, piece]));
+}
+
 // Streamdown completes unterminated markdown while tokens arrive, so a half-open code fence or `**`
 // never flickers. The element overrides put the answer on the Bureau tokens instead of Streamdown's
 // own classes; the model's text is untrusted, so raw HTML stays off (the default).
@@ -15,7 +22,7 @@ const elements = {
 	li: ({ children }: { children?: React.ReactNode }) => <li className="my-1">{children}</li>,
 	a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
 		<a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">
-			{children}
+			{typeof children === "string" ? breakableUrl(children) : children}
 		</a>
 	),
 	blockquote: ({ children }: { children?: React.ReactNode }) => (
@@ -42,7 +49,7 @@ export function Markdown({ text, isStreaming }: { text: string; isStreaming: boo
 			shikiTheme={["github-light", "github-dark"]}
 			controls={{ code: { download: false } }}
 			components={elements}
-			className="text-lg max-wide:text-[16px] [&_:not(pre)>code]:rounded-[5px] [&_:not(pre)>code]:bg-wash [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.9em]"
+			className="text-lg max-wide:text-[17px] max-wide:leading-[1.55] [&_:not(pre)>code]:rounded-[5px] [&_:not(pre)>code]:bg-wash [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.9em]"
 		>
 			{text}
 		</Streamdown>
