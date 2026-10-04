@@ -1,10 +1,10 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cn } from "cn";
 
-// Bureau's button: a 32px pill (40px on touch). The focus ring is the global :focus-visible outline.
+// Bureau's button: a 32px pill (44px on touch). The focus ring is the global :focus-visible outline.
 const base =
 	"inline-flex h-8 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3.5 " +
-	"text-[13.5px] font-medium whitespace-nowrap transition-colors select-none touch:h-10 " +
+	"text-[13.5px] font-medium whitespace-nowrap transition-colors select-none touch:h-11 " +
 	"data-disabled:cursor-default data-disabled:opacity-35 [&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 const variants = {
@@ -28,7 +28,7 @@ function Button({ variant = "ghost", icon, className, ...props }: ButtonProps) {
 	return (
 		<ButtonPrimitive
 			data-slot="button"
-			className={cn(base, variants[variant], icon && "size-8 p-0 touch:size-10", className)}
+			className={cn(base, variants[variant], icon && "size-8 p-0 touch:size-11", className)}
 			{...props}
 		/>
 	);

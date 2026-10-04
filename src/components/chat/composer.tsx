@@ -58,7 +58,7 @@ function QueuedMessages() {
 
 	return (
 		<Collapsible defaultOpen className="mb-2 rounded bg-wash-soft px-2 py-0.5">
-			<CollapsibleTrigger className="group flex w-fit cursor-pointer items-center gap-2 rounded-full px-[0.6rem] py-[0.3rem] text-[13px] font-semibold hover:bg-wash touch:min-h-9">
+			<CollapsibleTrigger className="group flex w-fit cursor-pointer items-center gap-2 rounded-full px-[0.6rem] py-[0.3rem] text-[13px] font-semibold hover:bg-wash touch:min-h-11">
 				Queued
 				<span className="rounded-sm bg-wash px-1.5 text-[11.5px] font-medium text-ink-soft">{queued}</span>
 				<HugeiconsIcon

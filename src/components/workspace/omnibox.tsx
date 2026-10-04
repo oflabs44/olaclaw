@@ -61,7 +61,7 @@ export function Omnibox() {
 						className="h-10 border-transparent bg-wash pl-9 focus:border-transparent"
 					/>
 				</div>
-				<ul className="grid max-h-[50vh] gap-0.5 overflow-y-auto">
+				<ul className="grid max-h-[50vh] gap-0.5 overflow-y-auto overscroll-contain">
 					{matches.map((destination, index) => (
 						<li key={destination.key}>
 							{(index === 0 || matches[index - 1].group !== destination.group) && (

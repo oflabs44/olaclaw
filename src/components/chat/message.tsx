@@ -29,7 +29,7 @@ const chatRoute = getRouteApi("/chats/$chatId");
 
 const rowTriggerClass =
 	"group flex w-fit max-w-full cursor-pointer items-center gap-2 -ml-[0.6rem] rounded-full px-[0.6rem] py-[0.3rem] " +
-	"text-[13px] text-ink-soft transition-colors select-none hover:bg-wash hover:text-ink touch:min-h-9";
+	"text-[13px] text-ink-soft transition-colors select-none hover:bg-wash hover:text-ink touch:min-h-11";
 
 function Chevron() {
 	return (

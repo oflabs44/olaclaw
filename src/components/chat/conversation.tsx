@@ -1,7 +1,7 @@
 import { ArrowDown01Icon, GitBranchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getRouteApi, Link, useLoaderData } from "@tanstack/react-router";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useEffect } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { parentTitle } from "@/components/workspace/chat-tree";
@@ -71,6 +71,18 @@ export function Conversation() {
 		resize: reduceMotion ? "instant" : "smooth",
 	});
 
+	// The library follows the content, not the pane. The pane gets shorter when the keyboard opens
+	// or the composer grows; without this the latest message goes under the composer.
+	useEffect(() => {
+		const scrollPane = scrollRef.current;
+		if (!scrollPane) return;
+		const observer = new ResizeObserver(() => {
+			void scrollToBottom({ animation: "instant", preserveScrollPosition: true });
+		});
+		observer.observe(scrollPane);
+		return () => observer.disconnect();
+	}, [scrollRef, scrollToBottom]);
+
 	const toolResults = collectToolResults(messages);
 	const runningToolOutput = new Map(runningTools.map((tool) => [tool.callId, tool.output]));
 	// Tool calls after the last prompt belong to the run in progress, if there is one.
@@ -85,7 +97,7 @@ export function Conversation() {
 
 	return (
 		<div className="relative min-h-0 flex-1">
-			<div ref={scrollRef} className="absolute inset-0 overflow-y-auto px-[clamp(1rem,4vw,2.5rem)] pt-6 pb-4 max-wide:pt-4">
+			<div ref={scrollRef} className="absolute inset-0 overflow-y-auto overscroll-contain px-[clamp(1rem,4vw,2.5rem)] pt-6 pb-4 max-wide:pt-4">
 				<div
 					ref={contentRef}
 					aria-label="Conversation"
@@ -156,7 +168,7 @@ export function Conversation() {
 				<button
 					type="button"
 					onClick={() => scrollToBottom()}
-					className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border border-line-strong bg-sheet py-1 pr-3 pl-2 text-[0.86rem] font-semibold shadow-float touch:min-h-10"
+					className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border border-line-strong bg-sheet py-1 pr-3 pl-2 text-[0.86rem] font-semibold shadow-float touch:min-h-11"
 				>
 					<HugeiconsIcon icon={ArrowDown01Icon} size={17} strokeWidth={1.5} />
 					Latest

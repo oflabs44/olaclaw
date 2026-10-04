@@ -142,7 +142,7 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 					to="/chats"
 					search={linkSearch(closesDrawer)}
 					activeOptions={{ exact: true }}
-					className="rounded px-[0.7rem] py-1 text-[0.8rem] font-semibold text-ink-faint hover:text-ink-soft"
+					className="flex items-center rounded px-[0.7rem] py-1 text-[0.8rem] font-semibold text-ink-faint hover:text-ink-soft touch:min-h-11"
 				>
 					Chats
 				</Link>

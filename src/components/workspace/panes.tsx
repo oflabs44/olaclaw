@@ -41,9 +41,8 @@ export function LeftPane() {
 			<SidePane isOpen={!panel.isPhone && panel.isOpen} label="Workspace" width="15.5rem">
 				<WorkspaceNav />
 			</SidePane>
-			<Sheet open={panel.isPhone && panel.isOpen} onOpenChange={panel.setOpen}>
+			<Sheet swipeDirection="left" open={panel.isPhone && panel.isOpen} onOpenChange={panel.setOpen}>
 				<SheetContent
-					side="left"
 					className="px-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
 				>
 					<SheetTitle className="sr-only">Workspace</SheetTitle>
@@ -62,9 +61,9 @@ export function NowPane() {
 				<NowPanel />
 			</SidePane>
 			<Sheet open={panel.isPhone && panel.isOpen} onOpenChange={panel.setOpen}>
-				<SheetContent side="bottom" className="px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+				<SheetContent className="px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
 					<span className="mx-auto mt-0.5 mb-1.5 block h-1 w-10 shrink-0 rounded-full bg-line-strong" aria-hidden="true" />
-					<div className="min-h-0 flex-1 overflow-y-auto">
+					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 						<NowPanel isSheet />
 					</div>
 				</SheetContent>

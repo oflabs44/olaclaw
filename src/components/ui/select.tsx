@@ -17,7 +17,7 @@ function SelectTrigger({ className, children, ...props }: SelectPrimitive.Trigge
 			className={cn(
 				"inline-flex h-8 cursor-pointer items-center gap-1 rounded-full px-3 text-[13.5px] font-medium",
 				"whitespace-nowrap text-ink-soft transition-colors outline-none select-none hover:bg-wash hover:text-ink",
-				"data-popup-open:bg-wash data-popup-open:text-ink touch:h-10",
+				"data-popup-open:bg-wash data-popup-open:text-ink touch:h-11",
 				className,
 			)}
 			{...props}
@@ -57,7 +57,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
 			data-slot="select-item"
 			className={cn(
 				"relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2.5 text-md outline-none select-none",
-				"data-highlighted:bg-wash touch:min-h-10",
+				"data-highlighted:bg-wash touch:min-h-11",
 				className,
 			)}
 			{...props}

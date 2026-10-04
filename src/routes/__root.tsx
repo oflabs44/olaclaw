@@ -20,8 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useKeyboardViewport } from "@/lib/use-keyboard-viewport";
 import appCss from "@/styles.css?url";
-import { getThemePreference, SYSTEM_THEME_SCRIPT } from "@/theme";
+import { getThemePreference, SYSTEM_THEME_SCRIPT, type ThemePreference } from "@/theme";
 import { getChats, getNowPanel } from "@/workspace-data";
 
 declare module "@tanstack/react-router" {
@@ -41,6 +42,20 @@ const workspaceSearch = z.object({
 
 export type WorkspaceSearch = z.infer<typeof workspaceSearch>;
 
+// --paper of each theme (tokens.css), so the browser bar and the status bar blend with the header.
+const PAPER = { light: "#fafafa", dark: "#0e0f11" };
+
+// Not in the route's `head`: that keeps one meta per name, and the system theme needs two.
+function ThemeColorMeta({ theme }: { theme: ThemePreference }) {
+	if (theme !== "system") return <meta name="theme-color" content={PAPER[theme]} />;
+	return (
+		<>
+			<meta name="theme-color" content={PAPER.light} media="(prefers-color-scheme: light)" />
+			<meta name="theme-color" content={PAPER.dark} media="(prefers-color-scheme: dark)" />
+		</>
+	);
+}
+
 export const Route = createRootRoute({
 	validateSearch: workspaceSearch,
 	search: { middlewares: [retainSearchParams(["left", "right"])] },
@@ -54,10 +69,25 @@ export const Route = createRootRoute({
 	head: () => ({
 		meta: [
 			{ charSet: "utf-8" },
-			{ name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-			{ title: "olaclaw" },
+			{
+				name: "viewport",
+				// interactive-widget: the layout shrinks with the keyboard where the browser supports it.
+				content: "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
+			},
+			{ title: "Phoebe" },
+			{ name: "apple-mobile-web-app-capable", content: "yes" },
+			{ name: "mobile-web-app-capable", content: "yes" },
+			{ name: "apple-mobile-web-app-title", content: "Phoebe" },
+			// The page draws under the status bar; the header pads itself with the safe-area inset.
+			{ name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
 		],
-		links: [{ rel: "stylesheet", href: appCss }],
+		links: [
+			{ rel: "stylesheet", href: appCss },
+			// Cloudflare Access answers a manifest request without cookies with its login page.
+			{ rel: "manifest", href: "/manifest.webmanifest", crossOrigin: "use-credentials" },
+			{ rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+			{ rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+		],
 		scripts: [{ children: SYSTEM_THEME_SCRIPT }],
 	}),
 	shellComponent: RootDocument,
@@ -74,6 +104,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 		<html lang="en" data-theme={theme === "system" ? undefined : theme} suppressHydrationWarning>
 			<head>
 				<HeadContent />
+				<ThemeColorMeta theme={theme} />
 			</head>
 			<body>
 				{children}
@@ -88,10 +119,11 @@ function RootDocument({ children }: { children: ReactNode }) {
  * Phones drop the chrome and the card frame; the panes become a drawer and a bottom sheet.
  */
 function Workspace() {
+	useKeyboardViewport();
 	return (
 		<TooltipProvider>
 			<Toaster>
-				<div className="grid h-dvh grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper wide:grid-rows-[auto_minmax(0,1fr)] wide:bg-chrome">
+				<div className="grid h-(--viewport-height,100dvh) grid-rows-[minmax(0,1fr)] overflow-hidden bg-paper wide:grid-rows-[auto_minmax(0,1fr)] wide:bg-chrome">
 					<Chrome />
 					<div className="flex min-h-0 min-w-0 bg-paper wide:mx-1.5 wide:gap-2.5 wide:rounded-t-card wide:px-2.5 wide:pt-2.5">
 						<LeftPane />
