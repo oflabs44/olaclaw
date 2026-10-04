@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { Composer } from "@/components/chat/composer";
 import { Conversation } from "@/components/chat/conversation";
+import { parentTitle } from "@/components/workspace/chat-tree";
 import { PageHeader } from "@/components/workspace/page-header";
 import { PiSessionProvider, usePiSession } from "@/pi-session";
 import { getChat } from "@/workspace-data";
@@ -22,8 +23,9 @@ function WorkingIndicator() {
 
 function ChatPage() {
 	const chatId = Route.useParams({ select: (params) => params.chatId });
+	const forkEntryId = Route.useLoaderData({ select: (chat) => chat.forkEntryId });
 	return (
-		<PiSessionProvider key={chatId} chatId={chatId}>
+		<PiSessionProvider key={chatId} chatId={chatId} forkEntryId={forkEntryId}>
 			<ChatHeader />
 			<Conversation />
 			<Composer />
@@ -32,7 +34,28 @@ function ChatPage() {
 }
 
 function ChatHeader() {
-	const title = Route.useLoaderData({ select: (chat) => chat.title });
+	const chat = Route.useLoaderData();
+	const parent = useLoaderData({ from: "__root__", select: (data) => parentTitle(chat, data.chats) });
 	const isRunning = usePiSession((state) => state.running);
-	return <PageHeader title={title} status={isRunning && <WorkingIndicator />} />;
+	return (
+		<PageHeader
+			title={chat.title}
+			subtitle={
+				chat.parentId !== null && (
+					<>
+						from{" "}
+						<Link
+							to="/chats/$chatId"
+							params={{ chatId: chat.parentId }}
+							search
+							className="underline decoration-line-strong underline-offset-2 hover:text-ink"
+						>
+							{parent ?? "a chat"}
+						</Link>
+					</>
+				)
+			}
+			status={isRunning && <WorkingIndicator />}
+		/>
+	);
 }

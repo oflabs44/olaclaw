@@ -40,9 +40,10 @@ function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode 
 
 /**
  * The card header on wide screens and the app bar on phones: panel toggles around the title.
+ * `subtitle` is a small line under the title, for example where a branch comes from.
  * `status` sits after the title, for example the chat's "Working" indicator.
  */
-export function PageHeader({ title, status }: { title: string; status?: ReactNode }) {
+export function PageHeader({ title, subtitle, status }: { title: string; subtitle?: ReactNode; status?: ReactNode }) {
 	const needsYouCount = useLoaderData({ from: "__root__", select: (data) => data.now.needsYou.length });
 
 	return (
@@ -51,9 +52,10 @@ export function PageHeader({ title, status }: { title: string; status?: ReactNod
 				<HugeiconsIcon icon={SidebarLeft01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
 				<HugeiconsIcon icon={BubbleChatIcon} size={20} strokeWidth={1.5} className="wide:hidden" />
 			</PanelToggle>
-			<h1 className="min-w-0 flex-1 truncate pl-1 text-lg font-semibold max-wide:pl-0 max-wide:text-center max-wide:text-[16px]">
-				{title}
-			</h1>
+			<div className="min-w-0 flex-1 pl-1 max-wide:pl-0 max-wide:text-center">
+				<h1 className="truncate text-lg font-semibold max-wide:text-[16px]">{title}</h1>
+				{subtitle && <p className="truncate text-sm leading-tight text-ink-soft">{subtitle}</p>}
+			</div>
 			{status}
 			<PanelToggle side="right">
 				<HugeiconsIcon icon={SidebarRight01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />

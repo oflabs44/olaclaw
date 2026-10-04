@@ -1,6 +1,7 @@
 import {
 	Brain01Icon,
 	Calendar03Icon,
+	GitBranchIcon,
 	Home01Icon,
 	PlusSignIcon,
 } from "@hugeicons/core-free-icons";
@@ -13,6 +14,7 @@ import { toast } from "@/components/ui/toast";
 import { type ConnectionStatus, usePiSession } from "@/pi-session";
 import type { WorkspaceSearch } from "@/routes/__root";
 import { createChat } from "@/workspace-data";
+import { type ChatTreeRow, chatTree } from "./chat-tree";
 import { ThemeToggle } from "./theme-toggle";
 
 const navLinkClass =
@@ -42,31 +44,54 @@ function linkSearch(closesDrawer: boolean) {
 	return closesDrawer ? (previous: WorkspaceSearch) => ({ ...previous, left: undefined }) : true;
 }
 
-function ChatLink({
-	chatId,
-	title,
-	closesDrawer,
-}: { chatId: string; title: string; closesDrawer: boolean }) {
+// How far one level of branches sits to the right of its parent, in rem.
+const BRANCH_INDENT = 0.9;
+
+/**
+ * One chat in the tree. A branch sits right of its parent, behind one guide line per level.
+ * `indent` is where a root title starts, in rem: in the nav, under the section labels.
+ */
+export function ChatLink({
+	row,
+	indent = 2.35,
+	closesDrawer = false,
+}: { row: ChatTreeRow; indent?: number; closesDrawer?: boolean }) {
+	const { chat, depth } = row;
 	// Only the open chat has a socket, so only it can show a run.
-	const isRunning = usePiSession((state) => state.chatId === chatId && state.running);
+	const isRunning = usePiSession((state) => state.chatId === chat.id && state.running);
 	return (
-		<Link
-			to="/chats/$chatId"
-			params={{ chatId }}
-			search={linkSearch(closesDrawer)}
-			className={cn(
-				navLinkClass,
-				"pl-[2.35rem] font-normal text-ink-soft data-[status=active]:text-ink",
-			)}
-		>
-			<span className="min-w-0 truncate">{title}</span>
-			{isRunning && (
-				<>
-					<span className="size-1.5 shrink-0 animate-stamp rounded-full bg-primary" aria-hidden="true" />
-					<span className="sr-only">, working</span>
-				</>
-			)}
-		</Link>
+		<div className="relative min-w-0">
+			{Array.from({ length: depth }, (_, level) => (
+				<span
+					key={level}
+					// The line starts in the gap above the row, so it reads as one line down the group.
+					className="absolute -top-0.5 bottom-0 w-px bg-line"
+					style={{ left: `${indent + 0.25 + level * BRANCH_INDENT}rem` }}
+					aria-hidden="true"
+				/>
+			))}
+			<Link
+				to="/chats/$chatId"
+				params={{ chatId: chat.id }}
+				search={linkSearch(closesDrawer)}
+				className={cn(navLinkClass, "gap-1.5 font-normal text-ink-soft data-[status=active]:text-ink")}
+				style={{ paddingLeft: `${indent + depth * BRANCH_INDENT + (depth > 0 ? 0.65 : 0)}rem` }}
+			>
+				{depth > 0 && (
+					<>
+						<HugeiconsIcon icon={GitBranchIcon} size={14} strokeWidth={1.5} className="shrink-0" />
+						<span className="sr-only">Branch: </span>
+					</>
+				)}
+				<span className="min-w-0 truncate">{chat.title}</span>
+				{isRunning && (
+					<>
+						<span className="ml-1 size-1.5 shrink-0 animate-stamp rounded-full bg-primary" aria-hidden="true" />
+						<span className="sr-only">, working</span>
+					</>
+				)}
+			</Link>
+		</div>
 	);
 }
 
@@ -121,8 +146,8 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 				>
 					Chats
 				</Link>
-				{chats.map((chat) => (
-					<ChatLink key={chat.id} chatId={chat.id} title={chat.title} closesDrawer={closesDrawer} />
+				{chatTree(chats).map((row) => (
+					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
 				))}
 			</div>
 			<Button

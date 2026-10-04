@@ -1,13 +1,16 @@
-import { ArrowDown01Icon, Copy01Icon, Idea01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Copy01Icon, GitBranchIcon, Idea01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ASK_TOOL } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
 import { usePiCommands } from "@/pi-session";
 import type { PiMessage, PiMessagePart } from "@/transcript";
+import { forkChat } from "@/workspace-data";
+import type { ChatSummary } from "@/chats";
 import { ApprovalBlock, type ApprovalQuestion } from "./approval-block";
 import { Markdown } from "./markdown";
 
@@ -21,6 +24,8 @@ const TOOL_BADGES: Record<ToolStatus, string> = {
 	error: "Error",
 	stopped: "Stopped",
 };
+
+const chatRoute = getRouteApi("/chats/$chatId");
 
 const rowTriggerClass =
 	"group flex w-fit max-w-full cursor-pointer items-center gap-2 -ml-[0.6rem] rounded-full px-[0.6rem] py-[0.3rem] " +
@@ -161,7 +166,45 @@ function StreamingCursor() {
 	);
 }
 
-function MessageActions({ text }: { text: string }) {
+// Shown on hover or focus where there is a pointer; always on touch and narrow screens.
+const actionRowClass =
+	"flex gap-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100 touch:opacity-100 max-wide:opacity-100";
+
+/** Starts a chat that shares this one's transcript up to the message, and opens it. */
+function BranchButton({ entryId }: { entryId: string }) {
+	const chatId = chatRoute.useParams({ select: (params) => params.chatId });
+	const router = useRouter();
+	// A second tap while the first one runs would make a second branch, and chats cannot be deleted yet.
+	const [isBranching, setIsBranching] = useState(false);
+
+	async function branch() {
+		if (isBranching) return;
+		setIsBranching(true);
+		let chat: ChatSummary;
+		try {
+			chat = await forkChat({ data: { chatId, entryId } });
+		} catch (error) {
+			console.error(`Cannot branch chat ${chatId} at ${entryId}`, error);
+			setIsBranching(false);
+			// The branch may exist when only the reply was lost, so the list is the place to check.
+			toast.add({ title: "Could not branch the chat", description: "Check the chat list before you try again." });
+			void router.invalidate();
+			return;
+		}
+		await router.invalidate();
+		await router.navigate({ to: "/chats/$chatId", params: { chatId: chat.id }, search: true });
+		setIsBranching(false);
+	}
+
+	return (
+		<Button disabled={isBranching} onClick={branch}>
+			<HugeiconsIcon icon={GitBranchIcon} size={17} strokeWidth={1.5} />
+			Branch
+		</Button>
+	);
+}
+
+function MessageActions({ text, entryId }: { text: string; entryId: string }) {
 	async function copy() {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -172,7 +215,7 @@ function MessageActions({ text }: { text: string }) {
 	}
 
 	return (
-		<div className="flex gap-1 opacity-0 transition-opacity group-focus-within/message:opacity-100 group-hover/message:opacity-100 touch:opacity-100 max-wide:opacity-100">
+		<div className={actionRowClass}>
 			<Button onClick={copy}>
 				<HugeiconsIcon icon={Copy01Icon} size={17} strokeWidth={1.5} />
 				Copy
@@ -181,6 +224,7 @@ function MessageActions({ text }: { text: string }) {
 				<HugeiconsIcon icon={RefreshIcon} size={17} strokeWidth={1.5} />
 				Retry
 			</Button>
+			<BranchButton entryId={entryId} />
 		</div>
 	);
 }
@@ -191,12 +235,21 @@ function userPartText(part: PiMessagePart): string {
 	return "";
 }
 
-export function UserMessage({ message }: { message: PiMessage }) {
+export function UserMessage({ message, className }: { message: PiMessage; className?: string }) {
 	return (
-		<article className="flex justify-end">
+		// Phones show the action under the bubble; wide screens have room for it beside the bubble.
+		<article
+			className={cn(
+				"group/message flex flex-col items-end gap-1 wide:flex-row-reverse wide:items-center wide:justify-start",
+				className,
+			)}
+		>
 			<p className="max-w-[78%] rounded-[8px_8px_4px_8px] bg-wash px-[0.9rem] py-[0.6rem] whitespace-pre-wrap [overflow-wrap:anywhere] max-wide:max-w-[88%]">
 				{message.parts.map(userPartText).join("")}
 			</p>
+			<div className={actionRowClass}>
+				<BranchButton entryId={message.id} />
+			</div>
 		</article>
 	);
 }
@@ -207,12 +260,14 @@ export function AssistantMessage({
 	isRunNow,
 	toolResults,
 	runningToolOutput,
+	className,
 }: {
 	message: PiMessage;
 	isLive: boolean;
 	isRunNow: boolean;
 	toolResults: ReadonlyMap<string, ToolResult>;
 	runningToolOutput: ReadonlyMap<string, string>;
+	className?: string;
 }) {
 	const text = message.parts
 		.flatMap((part) => (part.type === "text" ? [part.text] : []))
@@ -221,7 +276,7 @@ export function AssistantMessage({
 	const lastPart = message.parts.at(-1);
 
 	return (
-		<article className="group/message grid gap-1.5">
+		<article className={cn("group/message grid gap-1.5", className)}>
 			{message.parts.map((part, index) => {
 				const isLastPart = index === message.parts.length - 1;
 				switch (part.type) {
@@ -272,7 +327,7 @@ export function AssistantMessage({
 					{message.error}
 				</p>
 			)}
-			{!isLive && text !== "" && <MessageActions text={text} />}
+			{!isLive && text !== "" && <MessageActions text={text} entryId={message.id} />}
 		</article>
 	);
 }

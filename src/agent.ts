@@ -85,6 +85,13 @@ export class PiAgent extends DurableObject<Env> {
 		return this.chats.create();
 	}
 
+	forkChat(chatId: string, entryId: string): Promise<ChatSummary> {
+		return this.chats.fork(chatId, entryId, (model) => ({
+			provider: this.models[model].provider,
+			modelId: this.models[model].id,
+		}));
+	}
+
 	/** A short title for a chat, from its first message, by the smallest Claude model. */
 	async nameChat(firstMessage: string): Promise<string> {
 		const answer = await this.ai.completeSimple(

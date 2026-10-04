@@ -52,6 +52,10 @@ export const createChat = createServerFn({ method: "POST" }).handler(
 	(): Promise<ChatSummary> => userAgent().createChat(),
 );
 
+export const forkChat = createServerFn({ method: "POST" })
+	.validator(z.object({ chatId: z.string(), entryId: z.string() }))
+	.handler(({ data }): Promise<ChatSummary> => userAgent().forkChat(data.chatId, data.entryId));
+
 export const setChatModel = createServerFn({ method: "POST" })
 	.validator(z.object({ chatId: z.string(), model: z.string() }))
 	.handler(({ data }): Promise<void> => userAgent().setChatModel(data.chatId, data.model));

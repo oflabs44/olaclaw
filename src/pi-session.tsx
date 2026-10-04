@@ -58,7 +58,16 @@ export function usePiCommands(): PiCommands {
  * One chat's Pi session over the chat socket. The server sends Pi's own agent events and this
  * folds them into the store. A reconnect gets a fresh snapshot, so there is nothing to resume from.
  */
-export function PiSessionProvider({ chatId, children }: { chatId: string; children: ReactNode }) {
+export function PiSessionProvider({
+	chatId,
+	forkEntryId,
+	children,
+}: {
+	chatId: string;
+	/** The last entry a branch shares with its parent; the messages after it are the branch's own. */
+	forkEntryId: string | null;
+	children: ReactNode;
+}) {
 	const router = useRouter();
 	const owner = useRef({});
 
@@ -113,7 +122,12 @@ export function PiSessionProvider({ chatId, children }: { chatId: string; childr
 					const hasSnapshot = events.some((agentEvent) => agentEvent.type === "snapshot");
 					const changesInbox =
 						hasSnapshot || events.some((agentEvent) => agentEvent.type === "inbox_update");
-					const wasEmpty = piSessionStore.state.messages.length === 0;
+					// A branch starts with its parent's messages, and its first own message names it.
+					const ownMessages = () => {
+						const all = piSessionStore.state.messages;
+						return all.slice(all.findIndex((message) => message.id === forkEntryId) + 1);
+					};
+					const wasEmpty = ownMessages().length === 0;
 					update((current) => {
 						const next = { ...current, ...reduceEvents(current, events) };
 						if (!changesInbox) return next;
@@ -123,7 +137,7 @@ export function PiSessionProvider({ chatId, children }: { chatId: string; childr
 					});
 					// The first message names the chat on the server, so the lists need the new title; by
 					// the end of that first run the model-written title has usually replaced it.
-					const messages = piSessionStore.state.messages;
+					const messages = ownMessages();
 					const isFirstRun = messages.filter((message) => message.role === "user").length === 1;
 					const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
 					// "Needs you" lists the open questions, so it reloads when `ask` starts and when it ends:

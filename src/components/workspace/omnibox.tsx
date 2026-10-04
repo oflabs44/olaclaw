@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import type { WorkspaceSearch } from "@/routes/__root";
+import { chatTree, parentTitle } from "./chat-tree";
 import { useOmnibox } from "./panels";
 
 type Destination = { key: string; label: string; group: string } & Pick<LinkProps, "to" | "params">;
@@ -23,9 +24,9 @@ export function Omnibox() {
 		{ key: "routines", label: "Routines", group: "Go to", to: "/routines" },
 		{ key: "memory", label: "Memory", group: "Go to", to: "/memory" },
 		{ key: "chats", label: "All chats", group: "Go to", to: "/chats" },
-		...chats.map((chat) => ({
+		...chatTree(chats).map(({ chat }) => ({
 			key: `chat-${chat.id}`,
-			label: chat.title,
+			label: chat.parentId === null ? chat.title : `${parentTitle(chat, chats) ?? "Chat"} › ${chat.title}`,
 			group: "Chats",
 			to: "/chats/$chatId" as const,
 			params: { chatId: chat.id },

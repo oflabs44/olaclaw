@@ -1,9 +1,37 @@
+import type { Conversation, EntryId, ModelRef } from "@earendil-works/pi-durable";
 import { type PiHarness, type PiSessionId, ROOT_SESSION } from "agents/harness/pi";
 import { DEFAULT_MODEL, type ModelId } from "./models";
 
-export type ChatSummary = { readonly id: string; readonly title: string; readonly model: ModelId };
+export type ChatSummary = {
+	readonly id: string;
+	readonly title: string;
+	readonly model: ModelId;
+	/** The last use, in epoch milliseconds. */
+	readonly updatedAt: number;
+	/** The chat this one branched from, or null for a chat that started empty. */
+	readonly parentId: string | null;
+	/** The last Pi entry a branch shares with its parent. */
+	readonly forkEntryId: string | null;
+};
+
+type ChatRow = {
+	session_id: string;
+	title: string | null;
+	model: ModelId;
+	updated_at: number;
+	parent_session_id: string | null;
+	fork_entry_id: string | null;
+};
 
 const UNTITLED = "New chat";
+
+// pi-durable takes a chord `Context` on every call, and `agents/harness/pi` keeps its own private.
+// This is chord's background context: no values, never cancelled.
+const BACKGROUND: Parameters<Conversation["fork"]>[2] = Object.freeze({
+	abortSignal: undefined,
+	value: () => undefined,
+	toString: () => "[Context olaclaw]",
+});
 
 /** The first line of a trimmed, non-empty message, short enough for a list. */
 function titleFromText(text: string): string {
@@ -43,11 +71,16 @@ export class Chats {
 			"CREATE TABLE IF NOT EXISTS chat (session_id TEXT PRIMARY KEY, title TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 		);
 		// The table was deployed without `model`. The chats from before run Kimi, so that is the column default.
-		const hasModel = sql
+		const columns = sql
 			.exec<{ name: string }>("PRAGMA table_info(chat)")
 			.toArray()
-			.some((column) => column.name === "model");
-		if (!hasModel) sql.exec("ALTER TABLE chat ADD COLUMN model TEXT NOT NULL DEFAULT 'kimi-k2.7'");
+			.map((column) => column.name);
+		if (!columns.includes("model")) sql.exec("ALTER TABLE chat ADD COLUMN model TEXT NOT NULL DEFAULT 'kimi-k2.7'");
+		// A branch names its parent chat and the last entry it shares with it. Both are NULL for other chats.
+		if (!columns.includes("parent_session_id")) {
+			sql.exec("ALTER TABLE chat ADD COLUMN parent_session_id TEXT");
+			sql.exec("ALTER TABLE chat ADD COLUMN fork_entry_id TEXT");
+		}
 		// URLs Oladayo typed in a chat, plus the results of a web_search there: the only ones `fetch_url`
 		// may fetch in that chat. A fetched page cannot name a URL to send data to; it can at most make the
 		// model search, and the query text is guarded only by the prompt.
@@ -68,12 +101,26 @@ export class Chats {
 
 	/** Most recently used first. */
 	list(): ChatSummary[] {
-		return this.#sql
-			.exec<{ session_id: string; title: string | null; model: ModelId }>(
-				"SELECT session_id, title, model FROM chat ORDER BY updated_at DESC, created_at DESC",
+		const rows = this.#sql
+			.exec<ChatRow>(
+				"SELECT session_id, title, model, updated_at, parent_session_id, fork_entry_id FROM chat ORDER BY updated_at DESC, created_at DESC",
 			)
-			.toArray()
-			.map((row) => ({ id: row.session_id, title: row.title ?? UNTITLED, model: row.model }));
+			.toArray();
+		const rowsById = new Map(rows.map((row) => [row.session_id, row]));
+		// A branch has no title of its own until its first message.
+		function titleOf(row: ChatRow): string {
+			if (row.title !== null) return row.title;
+			const parent = row.parent_session_id === null ? undefined : rowsById.get(row.parent_session_id);
+			return parent ? `Branch of ${titleOf(parent)}` : UNTITLED;
+		}
+		return rows.map((row) => ({
+			id: row.session_id,
+			title: titleOf(row),
+			model: row.model,
+			updatedAt: row.updated_at,
+			parentId: row.parent_session_id,
+			forkEntryId: row.fork_entry_id,
+		}));
 	}
 
 	async create(): Promise<ChatSummary> {
@@ -86,7 +133,50 @@ export class Chats {
 			now,
 			DEFAULT_MODEL,
 		);
-		return { id: session.id, title: UNTITLED, model: DEFAULT_MODEL };
+		return { id: session.id, title: UNTITLED, model: DEFAULT_MODEL, updatedAt: now, parentId: null, forkEntryId: null };
+	}
+
+	/**
+	 * A new chat that shares the parent's transcript up to `entryId` and continues on its own.
+	 * It starts with no given URLs: `fetch_url` needs them typed or searched again in the branch.
+	 */
+	async fork(
+		parentSession: PiSessionId,
+		entryId: string,
+		modelRef: (model: ModelId) => ModelRef,
+	): Promise<ChatSummary> {
+		const parent = this.list().find((chat) => chat.id === parentSession);
+		if (!parent) throw new Error(`Unknown chat ${JSON.stringify(parentSession)}`);
+		const at = Number(entryId);
+		if (!Number.isSafeInteger(at) || at < 1) throw new Error(`Invalid entry ${JSON.stringify(entryId)}`);
+		// `sessions.fork` forks only at the newest entry. Pi rejects an entry the parent cannot see. A fork
+		// takes the model the parent had at that entry, so the chat's current model is set in the same commit.
+		const conversation = await this.#harness.conversation(parentSession);
+		const fork = await conversation.fork(
+			at as EntryId,
+			{ ownership: { kind: "ownerless" }, agent: { model: modelRef(parent.model) } },
+			BACKGROUND,
+		);
+		const id = String(fork.id);
+		const forkEntryId = String(at);
+		const now = Date.now();
+		this.#sql.exec(
+			"INSERT INTO chat (session_id, title, created_at, updated_at, model, parent_session_id, fork_entry_id) VALUES (?, NULL, ?, ?, ?, ?, ?)",
+			id,
+			now,
+			now,
+			parent.model,
+			parentSession,
+			forkEntryId,
+		);
+		return {
+			id,
+			title: `Branch of ${parent.title}`,
+			model: parent.model,
+			updatedAt: now,
+			parentId: parentSession,
+			forkEntryId,
+		};
 	}
 
 	setModel(session: PiSessionId, model: ModelId): void {

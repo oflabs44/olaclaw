@@ -1,11 +1,19 @@
-import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, GitBranchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { getRouteApi, Link, useLoaderData } from "@tanstack/react-router";
+import { Fragment, type ReactNode } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { parentTitle } from "@/components/workspace/chat-tree";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { usePiSession } from "@/pi-session";
 import type { PiMessage } from "@/transcript";
 import { AssistantMessage, type ToolResult, UserMessage } from "./message";
+
+const chatRoute = getRouteApi("/chats/$chatId");
+
+// The parent's messages in a branch: quieter until the pointer or the focus is on one.
+const fromParentClass = "opacity-65 transition-opacity focus-within:opacity-100 hover:opacity-100";
 
 function collectToolResults(messages: readonly PiMessage[]) {
 	const results = new Map<string, ToolResult>();
@@ -27,6 +35,30 @@ function WaitingLine() {
 	);
 }
 
+/** Where a branch leaves its parent: the messages above are the parent's. */
+function ForkDivider({ parentId, title }: { parentId: string; title: string }) {
+	return (
+		<div className="flex items-center gap-3 text-sm text-ink-soft">
+			<span className="h-px flex-1 bg-line" aria-hidden="true" />
+			<p className="flex min-w-0 items-center gap-1.5 rounded-full border border-line bg-sheet px-3 py-1">
+				<HugeiconsIcon icon={GitBranchIcon} size={14} strokeWidth={1.5} className="shrink-0" />
+				<span className="truncate">
+					Branched here from{" "}
+					<Link
+						to="/chats/$chatId"
+						params={{ chatId: parentId }}
+						search
+						className="font-medium text-ink underline decoration-line-strong underline-offset-2"
+					>
+						{title}
+					</Link>
+				</span>
+			</p>
+			<span className="h-px flex-1 bg-line" aria-hidden="true" />
+		</div>
+	);
+}
+
 /** The transcript of the root Pi session. It sticks to the bottom while the answer streams. */
 export function Conversation() {
 	const messages = usePiSession((state) => state.messages);
@@ -44,6 +76,12 @@ export function Conversation() {
 	// Tool calls after the last prompt belong to the run in progress, if there is one.
 	const currentTurnStart = messages.findLastIndex((message) => message.role === "user");
 	const isEmpty = messages.length === 0 && !live && !isRunning;
+
+	const chat = chatRoute.useLoaderData();
+	const parent = useLoaderData({ from: "__root__", select: (data) => parentTitle(chat, data.chats) });
+	const forkDivider = chat.parentId !== null && <ForkDivider parentId={chat.parentId} title={parent ?? "a chat"} />;
+	// -1 when a reset took the shared messages out of the transcript; the divider then goes first.
+	const forkIndex = messages.findIndex((message) => message.id === chat.forkEntryId);
 
 	return (
 		<div className="relative min-h-0 flex-1">
@@ -63,32 +101,44 @@ export function Conversation() {
 							</EmptyHeader>
 						</Empty>
 					)}
+					{forkIndex === -1 && messages.length > 0 && forkDivider}
 					{messages.map((message, index) => {
+						const className = index <= forkIndex ? fromParentClass : undefined;
+						let row: ReactNode = null;
 						switch (message.role) {
 							case "user":
-								return <UserMessage key={message.id} message={message} />;
+								row = <UserMessage message={message} className={className} />;
+								break;
 							case "assistant":
-								return (
+								row = (
 									<AssistantMessage
-										key={message.id}
 										message={message}
 										isLive={false}
 										isRunNow={isRunning && index > currentTurnStart}
 										toolResults={toolResults}
 										runningToolOutput={runningToolOutput}
+										className={className}
 									/>
 								);
+								break;
 							case "notice":
-								if (message.parts.length === 0) return null;
-								return (
-									<p key={message.id} className="text-center text-sm text-ink-faint">
+								if (message.parts.length === 0) break;
+								row = (
+									<p className="text-center text-sm text-ink-faint">
 										{message.parts.map((part) => (part.type === "text" ? part.text : "")).join("")}
 									</p>
 								);
+								break;
 							case "tool":
 								// Tool results show inside the tool call they answer.
-								return null;
+								break;
 						}
+						return (
+							<Fragment key={message.id}>
+								{row}
+								{index === forkIndex && forkDivider}
+							</Fragment>
+						);
 					})}
 					{live && (
 						<AssistantMessage
