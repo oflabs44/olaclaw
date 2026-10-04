@@ -9,6 +9,8 @@ import type { ServerMessage } from "./protocol";
 type ChatRegistry = Pick<Chats, "has" | "recordSubmit">;
 
 const SESSION_TAG_PREFIX = "pi-session:";
+// Marks a socket that follows a subagent's session: it gets the events and may send nothing.
+const READ_ONLY_TAG = "read-only";
 const SESSION_QUERY = "session";
 const OPEN = WebSocket.OPEN;
 
@@ -70,16 +72,18 @@ export class PiSessionSockets {
 		this.#approvals = approvals;
 	}
 
-	// Pi also has conversations that subagent tools own; a socket may only follow a chat.
-	#chatFromRequest(request: Request): PiSessionId {
+	// Every Pi conversation that is not a chat belongs to a `delegate` call: Oladayo may watch it, not drive it.
+	async #tagsFromRequest(request: Request): Promise<string[]> {
 		const session = sessionFromRequest(request);
-		if (!this.#chats.has(session)) throw new Error(`Session ${session} is not a chat`);
-		return session;
+		if (this.#chats.has(session)) return [sessionTag(session)];
+		const sessions = await this.#harness.sessions.list();
+		if (!sessions.some((candidate) => candidate.id === session)) throw new Error(`Unknown session ${session}`);
+		return [sessionTag(session), READ_ONLY_TAG];
 	}
 
 	options(): WebSocketsOptions {
 		return {
-			getConnectionTags: (_connection, ctx) => [sessionTag(this.#chatFromRequest(ctx.request))],
+			getConnectionTags: (_connection, ctx) => this.#tagsFromRequest(ctx.request),
 			handlers: {
 				onConnect: (connection, ctx) => this.#watch(connection, sessionFromRequest(ctx.request)),
 				onMessage: (connection, message) => this.#onMessage(connection, message),
@@ -139,6 +143,7 @@ export class PiSessionSockets {
 		try {
 			const session = sessionOf(connection.tags);
 			if (session === undefined) throw new Error("Connection has no session");
+			if (connection.tags.includes(READ_ONLY_TAG)) throw new Error("This session is read-only");
 			await this.#dispatch(session, JSON.parse(raw));
 		} catch (error) {
 			send(connection, {

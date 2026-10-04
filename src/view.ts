@@ -1,5 +1,6 @@
 // Adapted from Cloudflare's Pi harness example (MIT, Copyright (c) 2025 Cloudflare, Inc.).
-import type { AgentEvent, EntryRecord, MessageChange } from "@earendil-works/pi-durable";
+import type { JsonValue } from "@earendil-works/pi-ai";
+import type { AgentEvent, EntryRecord, MessageChange, UsageState } from "@earendil-works/pi-durable";
 import {
 	type PiMessage,
 	projectBlock,
@@ -13,6 +14,8 @@ export type PiRunningTool = {
 	readonly callId: string;
 	readonly name: string;
 	readonly output: string;
+	/** What the tool reports about itself while it runs, for example the session of a subagent. */
+	readonly details?: JsonValue;
 };
 
 /** Everything the UI shows for one session, derived from Pi's agent events by `reduceView`. */
@@ -27,6 +30,8 @@ export type PiSessionView = {
 	/** Retry backoff Pi is waiting out, if any. */
 	readonly retry: { readonly at: number; readonly error: string } | null;
 	readonly error: string | null;
+	/** The session's own spend, or null before the first snapshot. */
+	readonly usage: UsageState | null;
 };
 
 export const EMPTY_VIEW: PiSessionView = {
@@ -37,6 +42,7 @@ export const EMPTY_VIEW: PiSessionView = {
 	queued: 0,
 	retry: null,
 	error: null,
+	usage: null,
 };
 
 const LIVE_ID = "live";
@@ -102,10 +108,12 @@ function reduceView(view: PiSessionView, event: AgentEvent): PiSessionView {
 						callId: slot.callId,
 						name: slot.name,
 						output: slot.output ?? "",
+						details: slot.details,
 					})),
 				queued: event.inbox.length,
 				retry: event.generation?.retry ?? null,
 				error: null,
+				usage: event.usage,
 			};
 		}
 		case "run_start":
@@ -133,15 +141,17 @@ function reduceView(view: PiSessionView, event: AgentEvent): PiSessionView {
 				],
 			};
 		case "tool_execution_update": {
-			const output = event.output;
-			if (!output) return view;
+			const { output, details } = event;
+			if (!output && details === undefined) return view;
 			return {
 				...view,
 				tools: view.tools.map((tool) => {
 					if (tool.callId !== event.toolCallId) return tool;
-					if ("set" in output) return { ...tool, output: output.set };
+					const next = details === undefined ? tool : { ...tool, details };
+					if (!output) return next;
+					if ("set" in output) return { ...next, output: output.set };
 					return {
-						...tool,
+						...next,
 						output: tool.output.slice(output.trimStart ?? 0) + (output.append ?? ""),
 					};
 				}),
@@ -154,6 +164,8 @@ function reduceView(view: PiSessionView, event: AgentEvent): PiSessionView {
 			};
 		case "inbox_update":
 			return { ...view, queued: event.items.length };
+		case "usage_changed":
+			return { ...view, usage: event.usage };
 		case "auto_retry_start":
 			return { ...view, retry: { at: event.at, error: event.errorMessage } };
 		case "auto_retry_end":

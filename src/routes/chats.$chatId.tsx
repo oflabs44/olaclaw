@@ -1,13 +1,22 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { useState } from "react";
+import { z } from "zod";
 import { Composer } from "@/components/chat/composer";
 import { Conversation } from "@/components/chat/conversation";
+import { SubagentPaneContext } from "@/components/chat/subagent-card";
 import { parentTitle } from "@/components/workspace/chat-tree";
 import { PageHeader } from "@/components/workspace/page-header";
 import { PiSessionProvider, usePiSession } from "@/pi-session";
 import { getChat } from "@/workspace-data";
 
+// The subagent whose transcript is open: the conversation id that its `delegate` call reports.
+const chatSearch = z.object({
+	agent: z.string().optional().catch(undefined),
+});
+
 export const Route = createFileRoute("/chats/$chatId")({
 	staticData: { section: "Chats" },
+	validateSearch: chatSearch,
 	loader: ({ params }) => getChat({ data: { chatId: params.chatId } }),
 	component: ChatPage,
 });
@@ -24,11 +33,24 @@ function WorkingIndicator() {
 function ChatPage() {
 	const chatId = Route.useParams({ select: (params) => params.chatId });
 	const forkEntryId = Route.useLoaderData({ select: (chat) => chat.forkEntryId });
+	// The open subagent's card renders its transcript into this pane; phones use a sheet instead.
+	const [subagentPane, setSubagentPane] = useState<HTMLElement | null>(null);
 	return (
 		<PiSessionProvider key={chatId} chatId={chatId} forkEntryId={forkEntryId}>
 			<ChatHeader />
-			<Conversation />
-			<Composer />
+			<div className="flex min-h-0 flex-1">
+				<div className="flex min-w-0 flex-1 flex-col">
+					<SubagentPaneContext value={subagentPane}>
+						<Conversation />
+					</SubagentPaneContext>
+					<Composer />
+				</div>
+				<aside
+					ref={setSubagentPane}
+					aria-label="Subagent"
+					className="flex w-[min(30rem,45%)] flex-col border-l border-line empty:hidden max-wide:hidden"
+				/>
+			</div>
 		</PiSessionProvider>
 	);
 }

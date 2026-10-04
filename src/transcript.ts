@@ -25,6 +25,8 @@ export type PiMessagePart =
 			readonly name: string;
 			readonly content: readonly (TextContent | ImageContent)[];
 			readonly error: boolean;
+			/** What the tool reported about itself, for example the session of a subagent. */
+			readonly details?: JsonValue;
 	  };
 
 /** One display-ready message projected from a Pi transcript entry. */
@@ -33,6 +35,8 @@ export type PiMessage = {
 	readonly id: string;
 	readonly role: "user" | "assistant" | "tool" | "notice";
 	readonly parts: readonly PiMessagePart[];
+	/** When Pi recorded the message, in milliseconds. */
+	readonly timestamp?: number;
 	readonly error?: string;
 	/** The run was aborted while this assistant message was being written, usually by a Stop. */
 	readonly stopped?: boolean;
@@ -81,12 +85,13 @@ export function projectMessage(message: Message, id: string): PiMessage {
 			// Pi records prompt changes as system entries; the UI does not show them.
 			return { id, role: "notice", parts: [] };
 		case "user":
-			return { id, role: "user", parts: userParts(message.content) };
+			return { id, role: "user", parts: userParts(message.content), timestamp: message.timestamp };
 		case "assistant":
 			return {
 				id,
 				role: "assistant",
 				parts: message.content.map((block) => projectBlock(block)),
+				timestamp: message.timestamp,
 				error: message.errorMessage ?? (message.stopReason === "error" ? "Model error" : undefined),
 				stopped: message.stopReason === "aborted",
 				fallback: fallbackNotice(message),
@@ -95,6 +100,7 @@ export function projectMessage(message: Message, id: string): PiMessage {
 			return {
 				id,
 				role: "tool",
+				timestamp: message.timestamp,
 				parts: [
 					{
 						type: "tool-result",
@@ -102,6 +108,7 @@ export function projectMessage(message: Message, id: string): PiMessage {
 						name: message.toolName,
 						content: message.content,
 						error: message.isError,
+						details: message.details,
 					},
 				],
 			};

@@ -222,6 +222,15 @@ export class Chats {
 		}
 	}
 
+	/** Makes the URLs that are fetchable in `fromSession` fetchable in `toSession` too. A repeat changes nothing. */
+	inheritUrls(fromSession: PiSessionId, toSession: PiSessionId): void {
+		this.#sql.exec(
+			"INSERT OR IGNORE INTO given_url (session_id, url) SELECT ?, url FROM given_url WHERE session_id = ?",
+			toSession,
+			fromSession,
+		);
+	}
+
 	gaveUrl(session: PiSessionId, url: string): boolean {
 		return this.#sql.exec("SELECT 1 FROM given_url WHERE session_id = ? AND url = ?", session, url).toArray().length > 0;
 	}

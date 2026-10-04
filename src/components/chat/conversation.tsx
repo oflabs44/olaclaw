@@ -100,8 +100,12 @@ function ForkDivider({ parentId, title }: { parentId: string; title: string }) {
 	);
 }
 
-/** The transcript of the root Pi session. It sticks to the bottom while the answer streams. */
-export function Conversation() {
+/**
+ * The transcript of the Pi session that `usePiSession` reads: the chat, or a subagent. It sticks to
+ * the bottom while the answer streams. `isReadOnly` is for a subagent: nothing in it can be
+ * answered or branched, and it has no fork.
+ */
+export function Conversation({ isReadOnly = false }: { isReadOnly?: boolean }) {
 	const messages = usePiSession((state) => state.messages);
 	const live = usePiSession((state) => state.live);
 	const isRunning = usePiSession((state) => state.running);
@@ -125,16 +129,16 @@ export function Conversation() {
 	}, [scrollRef, scrollToBottom]);
 
 	const toolResults = collectToolResults(messages);
-	const runningToolOutput = new Map(runningTools.map((tool) => [tool.callId, tool.output]));
+	const runningToolsById = new Map(runningTools.map((tool) => [tool.callId, tool]));
 	// Tool calls after the last prompt belong to the run in progress, if there is one.
 	const currentTurnStart = messages.findLastIndex((message) => message.role === "user");
-	const isEmpty = messages.length === 0 && !live && !isRunning;
+	const isEmpty = !isReadOnly && messages.length === 0 && !live && !isRunning;
 
 	const chat = chatRoute.useLoaderData();
 	const parent = useLoaderData({ from: "__root__", select: (data) => parentTitle(chat, data.chats) });
-	const forkDivider = chat.parentId !== null && <ForkDivider parentId={chat.parentId} title={parent ?? "a chat"} />;
+	const forkDivider = !isReadOnly && chat.parentId !== null && <ForkDivider parentId={chat.parentId} title={parent ?? "a chat"} />;
 	// -1 when a reset took the shared messages out of the transcript; the divider then goes first.
-	const forkIndex = messages.findIndex((message) => message.id === chat.forkEntryId);
+	const forkIndex = isReadOnly ? -1 : messages.findIndex((message) => message.id === chat.forkEntryId);
 
 	return (
 		<div className="relative min-h-0 flex-1">
@@ -161,7 +165,7 @@ export function Conversation() {
 						let row: ReactNode = null;
 						switch (message.role) {
 							case "user":
-								row = <UserMessage message={message} className={className} />;
+								row = <UserMessage message={message} isReadOnly={isReadOnly} className={className} />;
 								break;
 							case "assistant":
 								row = (
@@ -170,7 +174,8 @@ export function Conversation() {
 										isLive={isLive}
 										isRunNow={isRunning && (isLive || lastIndex > currentTurnStart)}
 										toolResults={toolResults}
-										runningToolOutput={runningToolOutput}
+										runningTools={runningToolsById}
+										isReadOnly={isReadOnly}
 										className={className}
 									/>
 								);

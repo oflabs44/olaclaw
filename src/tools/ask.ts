@@ -1,10 +1,13 @@
 import { Type } from "@earendil-works/pi-ai";
-import { defineTool } from "@earendil-works/pi-durable";
+import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
 import type { Approvals } from "../approvals";
 import { ASK_TOOL } from "../protocol";
 
+const USAGE =
+	"Use ask only when Oladayo's choice changes what you do next and neither memory nor this conversation answers it; put the option you recommend first.";
+
 /** The call stays open until Oladayo picks an option, in the chat or in the Now panel. */
-export function askTool(approvals: Pick<Approvals, "open" | "wait">) {
+function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 	return defineTool({
 		name: ASK_TOOL,
 		description:
@@ -29,5 +32,14 @@ export function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 			const text = options.includes(answer) ? `Oladayo chose: ${answer}` : `Oladayo answered in his own words: ${answer}`;
 			return { content: [{ type: "text", text }] };
 		},
+	});
+}
+
+/** Its own extension, so a subagent can lose it: a subagent never talks to Oladayo. */
+export function askExtension(approvals: Pick<Approvals, "open" | "wait">) {
+	return defineExtension({
+		name: "ask",
+		tools: [askTool(approvals)],
+		sections: [section("ask", () => USAGE)],
 	});
 }

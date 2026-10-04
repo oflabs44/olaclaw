@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { createModels, createProvider } from "@earendil-works/pi-ai/models";
 import { ANTHROPIC_MODELS } from "@earendil-works/pi-ai/providers/anthropic.models";
-import { createRegistry, Harness } from "@earendil-works/pi-durable";
+import { createRegistry, Harness, type ModelRef } from "@earendil-works/pi-durable";
 import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
 import { createAI } from "agents/models/pi-ai";
@@ -14,6 +14,8 @@ import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
+import { askExtension } from "./tools/ask";
+import { delegateExtension } from "./tools/delegate";
 import { memoryExtension } from "./tools/memory";
 
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
@@ -51,8 +53,12 @@ export class PiAgent extends DurableObject<Env> {
 				}),
 			);
 			this.registry.install(instructions);
-			this.registry.install(memoryExtension(this.memory));
-			this.registry.install(toolsExtension(this.env.AI, this.chats, this.approvals));
+			const memory = memoryExtension(this.memory);
+			const ask = askExtension(this.approvals);
+			this.registry.install(memory);
+			this.registry.install(toolsExtension(this.env.AI, this.chats));
+			this.registry.install(ask);
+			this.registry.install(delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask]));
 			this.registry.install(clock);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},
@@ -86,10 +92,11 @@ export class PiAgent extends DurableObject<Env> {
 	}
 
 	forkChat(chatId: string, entryId: string): Promise<ChatSummary> {
-		return this.chats.fork(chatId, entryId, (model) => ({
-			provider: this.models[model].provider,
-			modelId: this.models[model].id,
-		}));
+		return this.chats.fork(chatId, entryId, (model) => this.#modelRef(model));
+	}
+
+	#modelRef(model: ModelId): ModelRef {
+		return { provider: this.models[model].provider, modelId: this.models[model].id };
 	}
 
 	/** A short title for a chat, from its first message, by the smallest Claude model. */

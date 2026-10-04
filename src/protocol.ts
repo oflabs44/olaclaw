@@ -1,8 +1,25 @@
 // Adapted from Cloudflare's Pi harness example (MIT, Copyright (c) 2025 Cloudflare, Inc.).
-import type { AgentEvent } from "@earendil-works/pi-durable";
+import type { AgentEvent, UsageState } from "@earendil-works/pi-durable";
+import type { ModelId } from "./models";
 
 /** The tool whose running call the chat renders as a question with buttons. */
 export const ASK_TOOL = "ask";
+
+/** The tool whose call the chat renders as a subagent, with the session in the call's details. */
+export const DELEGATE_TOOL = "delegate";
+
+/**
+ * What a `delegate` call reports about itself. `conversationId`, `model`, and `startedAt` come as
+ * soon as the subagent starts; `endedAt` and `usage` come with the result, so a finished card needs
+ * no socket to show them.
+ */
+export type DelegateDetails = {
+	conversationId: string;
+	model: ModelId;
+	startedAt: number;
+	endedAt?: number;
+	usage?: UsageState;
+};
 
 /** URL path of the chat socket. The Worker forwards upgrades on it to the user's object. */
 export const SOCKET_PATH = "agent-socket";

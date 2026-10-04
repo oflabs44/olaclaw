@@ -4,20 +4,22 @@ import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import { type ReactNode, useState } from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import { ASK_TOOL } from "@/protocol";
+import { ASK_TOOL, DELEGATE_TOOL } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePiCommands } from "@/pi-session";
 import type { PiMessage, PiMessagePart } from "@/transcript";
+import type { PiRunningTool } from "@/view";
 import { forkChat } from "@/workspace-data";
 import type { ChatSummary } from "@/chats";
 import { ApprovalBlock, type ApprovalQuestion } from "./approval-block";
 import { Markdown } from "./markdown";
+import { SubagentCards } from "./subagent-card";
 
 export type ToolResult = Extract<PiMessagePart, { type: "tool-result" }>;
-type ToolCall = Extract<PiMessagePart, { type: "tool-call" }>;
-type ToolStatus = "running" | "done" | "error" | "stopped";
+export type ToolCall = Extract<PiMessagePart, { type: "tool-call" }>;
+export type ToolStatus = "running" | "done" | "error" | "stopped";
 
 const TOOL_BADGES: Record<ToolStatus, string> = {
 	running: "Running",
@@ -61,11 +63,11 @@ function Reasoning({ text, isStreaming }: { text: string; isStreaming: boolean }
 	);
 }
 
-function toolResultText(result: ToolResult) {
+export function toolResultText(result: ToolResult) {
 	return result.content.map((content) => (content.type === "text" ? content.text : "[image]")).join("\n");
 }
 
-function toolStatus(result: ToolResult | undefined, isRunning: boolean): ToolStatus {
+export function toolStatus(result: ToolResult | undefined, isRunning: boolean): ToolStatus {
 	if (result) return result.error ? "error" : "done";
 	return isRunning ? "running" : "stopped";
 }
@@ -265,7 +267,7 @@ function ActionButton({ label, ...props }: Omit<ButtonProps, "icon" | "aria-labe
 	);
 }
 
-function MessageActions({ text, entryId }: { text: string; entryId: string }) {
+function MessageActions({ text, entryId, canBranch }: { text: string; entryId: string; canBranch: boolean }) {
 	async function copy() {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -280,7 +282,7 @@ function MessageActions({ text, entryId }: { text: string; entryId: string }) {
 			<ActionButton label="Copy" onClick={copy}>
 				<HugeiconsIcon icon={Copy01Icon} size={17} strokeWidth={1.5} />
 			</ActionButton>
-			<BranchButton entryId={entryId} />
+			{canBranch && <BranchButton entryId={entryId} />}
 		</div>
 	);
 }
@@ -291,7 +293,15 @@ function userPartText(part: PiMessagePart): string {
 	return "";
 }
 
-export function UserMessage({ message, className }: { message: PiMessage; className?: string }) {
+export function UserMessage({
+	message,
+	isReadOnly,
+	className,
+}: {
+	message: PiMessage;
+	isReadOnly: boolean;
+	className?: string;
+}) {
 	return (
 		// Phones show the action under the bubble; wide screens have room for it beside the bubble.
 		<article
@@ -303,9 +313,11 @@ export function UserMessage({ message, className }: { message: PiMessage; classN
 			<p className="max-w-[78%] rounded-[8px_8px_4px_8px] bg-wash-strong px-[0.9rem] py-[0.6rem] whitespace-pre-wrap [overflow-wrap:anywhere] max-wide:max-w-[88%] max-wide:text-[17px] max-wide:leading-[1.55]">
 				{message.parts.map(userPartText).join("")}
 			</p>
-			<div className={actionRowClass}>
-				<BranchButton entryId={message.id} />
-			</div>
+			{!isReadOnly && (
+				<div className={actionRowClass}>
+					<BranchButton entryId={message.id} />
+				</div>
+			)}
 		</article>
 	);
 }
@@ -315,14 +327,18 @@ export function AssistantMessage({
 	isLive,
 	isRunNow,
 	toolResults,
-	runningToolOutput,
+	runningTools,
+	isReadOnly,
 	className,
 }: {
 	message: PiMessage;
 	isLive: boolean;
 	isRunNow: boolean;
 	toolResults: ReadonlyMap<string, ToolResult>;
-	runningToolOutput: ReadonlyMap<string, string>;
+	/** The tool calls that run now, by call id. */
+	runningTools: ReadonlyMap<string, PiRunningTool>;
+	/** A subagent's transcript: it shows what happened and takes no answer and no branch. */
+	isReadOnly: boolean;
 	className?: string;
 }) {
 	const text = message.parts
@@ -332,9 +348,26 @@ export function AssistantMessage({
 	const lastPart = message.parts.at(-1);
 
 	// Reasoning and tool calls that follow each other fold into one Steps row, so the answer is
-	// not pushed down by one line per step. An `ask` that waits for a choice stands on its own.
+	// not pushed down by one line per step. An `ask` that waits for a choice stands on its own, and
+	// so do subagents: `delegate` calls that follow each other make one stack of cards.
 	const blocks: ReactNode[] = [];
 	let steps: StepPart[] = [];
+	let delegateCalls: ToolCall[] = [];
+
+	function flushDelegateCalls() {
+		if (delegateCalls.length === 0) return;
+		const calls = delegateCalls;
+		delegateCalls = [];
+		blocks.push(
+			<SubagentCards
+				key={`subagents-${calls[0].id}`}
+				calls={calls}
+				toolResults={toolResults}
+				runningTools={runningTools}
+				isRunNow={isRunNow}
+			/>,
+		);
+	}
 
 	function flushSteps() {
 		if (steps.length === 0) return;
@@ -349,7 +382,7 @@ export function AssistantMessage({
 					key={part.id}
 					call={part}
 					result={toolResults.get(part.id)}
-					runningOutput={runningToolOutput.get(part.id)}
+					runningOutput={runningTools.get(part.id)?.output}
 					isRunNow={isRunNow}
 				/>
 			),
@@ -365,27 +398,39 @@ export function AssistantMessage({
 		);
 	}
 
+	function flushGroups() {
+		flushSteps();
+		flushDelegateCalls();
+	}
+
 	message.parts.forEach((part, index) => {
 		const isLastPart = index === message.parts.length - 1;
 		switch (part.type) {
 			case "thinking":
+				flushDelegateCalls();
 				steps.push(part);
 				return;
 			case "tool-call": {
+				if (part.name === DELEGATE_TOOL) {
+					flushSteps();
+					delegateCalls.push(part);
+					return;
+				}
 				// `ask` waits for a choice while it runs. Once answered it shows as any other tool call.
-				const isWaiting = !toolResults.has(part.id) && runningToolOutput.has(part.id);
+				const isWaiting = !isReadOnly && !toolResults.has(part.id) && runningTools.has(part.id);
 				const approval = part.name === ASK_TOOL && isWaiting ? askedQuestion(part) : undefined;
 				if (!approval) {
+					flushDelegateCalls();
 					steps.push(part);
 					return;
 				}
-				flushSteps();
+				flushGroups();
 				blocks.push(<AskBlock key={part.id} call={part} approval={approval} />);
 				return;
 			}
 			case "text":
 				if (part.text === "" && !(isLive && isLastPart)) return;
-				flushSteps();
+				flushGroups();
 				blocks.push(
 					<div key={index} className="min-w-0 [overflow-wrap:anywhere]">
 						<Markdown text={part.text} isStreaming={isLive && isLastPart} />
@@ -394,7 +439,7 @@ export function AssistantMessage({
 				);
 				return;
 			case "image":
-				flushSteps();
+				flushGroups();
 				blocks.push(
 					<p key={index} className="text-ink-soft">
 						[image]
@@ -405,7 +450,7 @@ export function AssistantMessage({
 				return;
 		}
 	});
-	flushSteps();
+	flushGroups();
 
 	return (
 		<article className={cn("group/message grid gap-1.5 [&>*]:min-w-0", className)}>
@@ -422,7 +467,7 @@ export function AssistantMessage({
 					{message.error}
 				</p>
 			)}
-			{!isLive && text !== "" && <MessageActions text={text} entryId={message.id} />}
+			{!isLive && text !== "" && <MessageActions text={text} entryId={message.id} canBranch={!isReadOnly} />}
 		</article>
 	);
 }
