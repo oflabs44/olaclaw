@@ -138,27 +138,25 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 				))}
 			</div>
 			<div className="grid gap-0.5">
-				<Link
-					to="/chats"
-					search={linkSearch(closesDrawer)}
-					activeOptions={{ exact: true }}
-					className="flex items-center rounded px-[0.7rem] py-1 text-[0.8rem] font-semibold text-ink-faint hover:text-ink-soft touch:min-h-11"
-				>
-					Chats
-				</Link>
+				{/* The new-chat button sits by the heading, so it needs no scrolling when the list is long. */}
+				<div className="flex items-center justify-between pr-1">
+					<Link
+						to="/chats"
+						search={linkSearch(closesDrawer)}
+						activeOptions={{ exact: true }}
+						className="flex items-center rounded px-[0.7rem] py-1 text-[0.8rem] font-semibold text-ink-faint hover:text-ink-soft touch:min-h-11"
+					>
+						Chats
+					</Link>
+					<Button variant="quiet" className="h-7 px-2.5 text-[12.5px] touch:h-10" disabled={isStartingChat} onClick={startChat}>
+						<HugeiconsIcon icon={PlusSignIcon} size={16} strokeWidth={1.75} />
+						New chat
+					</Button>
+				</div>
 				{chatTree(chats).map((row) => (
 					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
 				))}
 			</div>
-			<Button
-				variant="quiet"
-				className="mx-1.5"
-				disabled={isStartingChat}
-				onClick={startChat}
-			>
-				<HugeiconsIcon icon={PlusSignIcon} size={18} strokeWidth={1.5} />
-				New chat
-			</Button>
 			<div className="mt-auto flex items-center justify-between px-2">
 				<p className="flex items-center gap-2 text-[0.85rem] text-ink-soft" role="status">
 					{status && (
