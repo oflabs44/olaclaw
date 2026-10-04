@@ -204,8 +204,8 @@ export function Composer() {
 						className="max-h-44 min-h-[2.3rem] px-4 pt-3 pb-1 text-[0.98rem] max-wide:px-3.5 max-wide:text-[16px]"
 					/>
 					<div className="flex items-center gap-0.5 px-2 pt-1 pb-2 max-wide:px-1.5 max-wide:pb-1.5">
-						<span className="flex-1" />
 						<ModelPicker />
+						<span className="flex-1" />
 						{isRunning ? (
 							<Button
 								icon
