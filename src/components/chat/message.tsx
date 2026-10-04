@@ -1,4 +1,4 @@
-import { ArrowDown01Icon, Copy01Icon, GitBranchIcon, Idea01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Copy01Icon, GitBranchIcon, Idea01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
@@ -219,10 +219,6 @@ function MessageActions({ text, entryId }: { text: string; entryId: string }) {
 			<Button onClick={copy}>
 				<HugeiconsIcon icon={Copy01Icon} size={17} strokeWidth={1.5} />
 				Copy
-			</Button>
-			<Button onClick={() => toast.add({ title: "Not wired yet", description: "Retry comes later." })}>
-				<HugeiconsIcon icon={RefreshIcon} size={17} strokeWidth={1.5} />
-				Retry
 			</Button>
 			<BranchButton entryId={entryId} />
 		</div>

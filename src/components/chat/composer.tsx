@@ -1,10 +1,4 @@
-import {
-	ArrowDown01Icon,
-	ArrowUp01Icon,
-	Attachment01Icon,
-	Mic01Icon,
-	StopIcon,
-} from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, ArrowUp01Icon, StopIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { type KeyboardEvent, type SubmitEvent, useRef, useState } from "react";
@@ -13,7 +7,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MODELS, type ModelId } from "@/models";
 import { usePiCommands, usePiSession } from "@/pi-session";
 import { setChatModel } from "@/workspace-data";
@@ -22,23 +15,6 @@ const chatRoute = getRouteApi("/chats/$chatId");
 
 // The trigger shows the label of the chosen item; the list shows the note too.
 const MODEL_ITEMS = MODELS.map((model) => ({ value: model.id, label: model.label }));
-
-const SUGGESTIONS = ["What can you do?", "Help me plan my week", "Draft a short email"];
-
-function notWiredYet() {
-	toast.add({ title: "Not wired yet" });
-}
-
-function ToolbarButton({ label, icon }: { label: string; icon: typeof Mic01Icon }) {
-	return (
-		<Tooltip>
-			<TooltipTrigger render={<Button icon aria-label={label} onClick={notWiredYet} />}>
-				<HugeiconsIcon icon={icon} size={18} strokeWidth={1.5} />
-			</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
-		</Tooltip>
-	);
-}
 
 function ModelPicker() {
 	const router = useRouter();
@@ -98,15 +74,9 @@ function QueuedMessages() {
 						{queuedTexts.map((text, index) => (
 							<li
 								key={`${index}-${text}`}
-								className="group/item flex items-center gap-2.5 border-t border-line py-1.5 pr-1 pl-3 text-[0.92rem]"
+								className="flex items-center gap-2.5 border-t border-line py-1.5 pr-1 pl-3 text-[0.92rem]"
 							>
 								<span className="min-w-0 flex-1 truncate">{text}</span>
-								<Button
-									className="opacity-0 group-focus-within/item:opacity-100 group-hover/item:opacity-100 touch:opacity-100"
-									onClick={notWiredYet}
-								>
-									Remove
-								</Button>
 							</li>
 						))}
 					</ul>
@@ -148,11 +118,6 @@ export function Composer() {
 		send();
 	}
 
-	function applySuggestion(text: string) {
-		setDraft(text);
-		textareaRef.current?.focus();
-	}
-
 	return (
 		<footer className="px-[clamp(1rem,4vw,2.5rem)] pt-1.5 pb-4 max-wide:px-3 max-wide:pt-1 max-wide:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 			<div className="mx-auto max-w-[44rem]">
@@ -165,20 +130,6 @@ export function Composer() {
 					<p role="status" className="mb-2 px-1 text-md text-ink-soft">
 						{status === "connecting" ? "Connecting…" : "Reconnecting… Reload the page if this does not recover."}
 					</p>
-				)}
-				{!isRunning && (
-					<div className="mb-2.5 flex gap-1.5 max-wide:-mx-3 max-wide:overflow-x-auto max-wide:px-3 max-wide:[scrollbar-width:none] wide:flex-wrap">
-						{SUGGESTIONS.map((suggestion) => (
-							<button
-								key={suggestion}
-								type="button"
-								onClick={() => applySuggestion(suggestion)}
-								className="h-7 shrink-0 cursor-pointer rounded-full border border-line-strong bg-sheet px-3 text-[13px] whitespace-nowrap text-ink-soft hover:bg-wash hover:text-ink touch:h-10"
-							>
-								{suggestion}
-							</button>
-						))}
-					</div>
 				)}
 				<QueuedMessages />
 				<form
@@ -195,13 +146,11 @@ export function Composer() {
 						value={draft}
 						onChange={(event) => setDraft(event.target.value)}
 						onKeyDown={handleKeyDown}
-						placeholder={isRunning ? "Queue a follow-up" : "Message olaclaw"}
+						placeholder={isRunning ? "Queue a follow-up" : "Message Phoebe"}
 						autoComplete="off"
 						className="max-h-44 min-h-[2.3rem] px-4 pt-3 pb-1 text-[0.98rem] max-wide:px-3.5 max-wide:text-[16px]"
 					/>
 					<div className="flex items-center gap-0.5 px-2 pt-1 pb-2 max-wide:px-1.5 max-wide:pb-1.5">
-						<ToolbarButton label="Add a file" icon={Attachment01Icon} />
-						<ToolbarButton label="Speak" icon={Mic01Icon} />
 						<span className="flex-1" />
 						<ModelPicker />
 						{isRunning ? (
