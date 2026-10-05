@@ -30,9 +30,20 @@ export const AYO_EXECUTE_APPROVAL = {
 	options: ["Run it", "Do not run"],
 } as const;
 
-/** The code and params Oladayo reads before he approves an `ayo_execute` call. */
+/**
+ * The params and code Oladayo reads before he approves an `ayo_execute` call. The params come first and
+ * every character outside printable ASCII shows as an escape, so nothing in them or in the code can
+ * pass for something else on screen. The tool refuses code that is not printable ASCII.
+ */
 export function ayoExecuteCode(code: string, params: unknown): string {
-	return params === undefined ? code : `${code}\n\n// params\n${JSON.stringify(params, null, 2)}`;
+	const shownParams =
+		params === undefined
+			? "none"
+			: JSON.stringify(params, null, 2).replace(
+					/[^\n\x20-\x7E]/g,
+					(character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
+				);
+	return `// params: ${shownParams}\n\n// code:\n${code}`;
 }
 
 /** What an `ayo_execute` call reports once Oladayo approved it; the chat then stops asking. */

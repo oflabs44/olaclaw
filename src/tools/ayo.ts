@@ -15,8 +15,8 @@ const MAX_TEXT_BYTES = 19_000;
 // A wake restores the connection in the background; a call or a page load waits this long for it.
 const RESTORE_TIMEOUT_MILLISECONDS = 5_000;
 
-// Zero-width, bidirectional-control, and unusual line-break characters, and other control characters except tab, newline, and carriage return.
-const INVISIBLE_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u061C\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF]/;
+// Tab, newline, and printable ASCII. Anything else can look on screen like something it is not.
+const PLAIN_CODE = /^[\t\n\x20-\x7E]*$/;
 
 const NOT_CONNECTED = "Ayo is not connected. Ask Oladayo to connect Ayo in the app, then try again.";
 
@@ -191,7 +191,7 @@ function ayoExecuteTool(mcp: AyoClient, approvals: Pick<Approvals, "open" | "wai
 		description:
 			"Run JavaScript against Ayo's capabilities through `ayo.<name>(input)`, after Oladayo read and approved the code. The module must default-export a function; put every declaration inside that function. There is no network access, `params` is a global object, and the run has 30 seconds. Returns JSON with the result and the logs.",
 		parameters: Type.Object({
-			code: Type.String({ minLength: 1, description: "The module source. Oladayo reads it before it runs." }),
+			code: Type.String({ minLength: 1, description: "The module source, in printable ASCII. Oladayo reads it before it runs." }),
 			params: Type.Optional(
 				Type.Record(Type.String(), Type.Unknown(), { description: "Values the code reads from the global `params`." }),
 			),
@@ -204,11 +204,13 @@ function ayoExecuteTool(mcp: AyoClient, approvals: Pick<Approvals, "open" | "wai
 		async execute(args, api, context) {
 			// Before the question, so Oladayo does not approve code that cannot run.
 			if (!(await isAyoConnected(mcp))) return errorResult(NOT_CONNECTED);
-			const shown = ayoExecuteCode(args.code, args.params);
-			// Oladayo approves what he sees. These characters hide or reorder text on screen but not for the runtime.
-			if (INVISIBLE_CHARACTERS.test(shown)) {
-				return errorResult("Refused: the code or params contain invisible or text-direction characters. Write them as escapes.");
+			// Oladayo approves what he sees, so the code must read on screen exactly as it runs.
+			if (!PLAIN_CODE.test(args.code)) {
+				return errorResult(
+					"Refused: the code must be printable ASCII with tabs and newlines only. Pass other text through params, or write it as \\u escapes.",
+				);
 			}
+			const shown = ayoExecuteCode(args.code, args.params);
 			const [approve] = AYO_EXECUTE_APPROVAL.options;
 			approvals.open(
 				String(api.conversationId),
