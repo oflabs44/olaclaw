@@ -3,6 +3,7 @@ import {
 	Calendar03Icon,
 	GitBranchIcon,
 	Home01Icon,
+	Plug01Icon,
 	PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { type ConnectionStatus, usePiSession } from "@/pi-session";
 import type { WorkspaceSearch } from "@/routes/__root";
-import { connectAyo, createChat } from "@/workspace-data";
+import { createChat } from "@/workspace-data";
 import { type ChatTreeRow, chatTree } from "./chat-tree";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -24,12 +25,16 @@ const navRowClass =
 const sectionLinkClass = `${navRowClass} gap-2.5 py-[0.42rem] text-[0.92rem] font-medium text-ink`;
 
 // A step smaller and tighter than a section link, so the chat list reads as a list under the sections.
-const chatLinkClass = `${navRowClass} gap-1.5 py-[0.3rem] text-[0.86rem] text-ink-soft data-[status=active]:text-ink`;
+// The open chat differs only in ink strength: no surface, so the list stays quiet.
+const chatLinkClass =
+	"flex w-full min-w-0 items-center gap-1.5 rounded px-[0.7rem] py-[0.3rem] text-[0.86rem] text-ink-soft " +
+	"transition-colors hover:text-ink data-[status=active]:text-ink touch:min-h-11 [&_svg]:text-ink-faint";
 
-const SECTIONS: { to: "/" | "/routines" | "/memory"; label: string; icon: IconSvgElement }[] = [
+const SECTIONS: { to: "/" | "/routines" | "/memory" | "/connections"; label: string; icon: IconSvgElement }[] = [
 	{ to: "/", label: "Today", icon: Home01Icon },
 	{ to: "/routines", label: "Routines", icon: Calendar03Icon },
 	{ to: "/memory", label: "Memory", icon: Brain01Icon },
+	{ to: "/connections", label: "Connections", icon: Plug01Icon },
 ];
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
@@ -98,50 +103,10 @@ export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; clos
 
 const statusItemClass = "flex items-center gap-1.5 whitespace-nowrap";
 
-/** Whether Phoebe can reach Ayo, with the action that starts Ayo's login when she cannot. */
-function AyoConnection() {
-	const isConnected = useLoaderData({ from: "__root__", select: (data) => data.isAyoConnected });
-	const router = useRouter();
-
-	async function connect() {
-		try {
-			const loginUrl = await connectAyo();
-			if (loginUrl !== null) {
-				// Ayo's login and consent pages; Ayo sends the browser back to the app afterwards.
-				window.location.assign(loginUrl);
-				return;
-			}
-		} catch (error) {
-			console.error("Cannot connect Ayo", error);
-			toast.add({ title: "Could not connect Ayo", description: "Try again in a moment." });
-		}
-		await router.invalidate();
-	}
-
-	return (
-		<>
-			<p className={statusItemClass} role="status" title={isConnected ? "Ayo connected" : undefined}>
-				{isConnected ? (
-					<>
-						<span className="size-[0.45rem] shrink-0 rounded-full bg-accent" aria-hidden="true" />
-						Ayo<span className="sr-only"> connected</span>
-					</>
-				) : (
-					<span className="sr-only">Ayo not connected</span>
-				)}
-			</p>
-			{!isConnected && (
-				<Button variant="quiet" className="h-7 shrink-0 px-2.5 text-[12.5px] touch:h-10" onClick={connect}>
-					Connect Ayo
-				</Button>
-			)}
-		</>
-	);
-}
-
 /** The left pane: where you are. The same content fills the phone drawer. */
 export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+	const isAyoConnected = useLoaderData({ from: "__root__", select: (data) => data.isAyoConnected });
 	// The connection status belongs to the open chat's socket.
 	const status = usePiSession((state) => (state.chatId === undefined ? undefined : state.status));
 	const router = useRouter();
@@ -178,12 +143,18 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 					>
 						<HugeiconsIcon icon={section.icon} size={18} strokeWidth={1.5} />
 						{section.label}
+						{section.to === "/connections" && !isAyoConnected && (
+							<>
+								<span className="ml-auto size-1.5 shrink-0 rounded-full bg-star" aria-hidden="true" />
+								<span className="sr-only">, needs you</span>
+							</>
+						)}
 					</Link>
 				))}
 			</div>
 			<div className="grid gap-0.5">
 				{/* The new-chat button sits by the heading, so it needs no scrolling when the list is long. */}
-				<div className="flex items-center justify-between pr-1">
+				<div className="mb-1.5 flex items-center justify-between pr-1">
 					<Link
 						to="/chats"
 						search={linkSearch(closesDrawer)}
@@ -203,9 +174,8 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 			</div>
 			<div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
 				<div className="flex min-w-0 items-center pl-[0.7rem] text-[0.8rem] text-ink-soft">
-					{/* Empty with no chat open; the margin then goes too, so Ayo starts at the left edge. */}
 					<p
-						className={cn(statusItemClass, "not-empty:mr-3")}
+						className={statusItemClass}
 						role="status"
 						title={status && `Phoebe: ${STATUS_LABELS[status]}`}
 					>
@@ -228,7 +198,6 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 							</>
 						)}
 					</p>
-					<AyoConnection />
 				</div>
 				<ThemeToggle />
 			</div>

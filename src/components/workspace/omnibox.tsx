@@ -23,6 +23,7 @@ export function Omnibox() {
 		{ key: "today", label: "Today", group: "Go to", to: "/" },
 		{ key: "routines", label: "Routines", group: "Go to", to: "/routines" },
 		{ key: "memory", label: "Memory", group: "Go to", to: "/memory" },
+		{ key: "connections", label: "Connections", group: "Go to", to: "/connections" },
 		{ key: "chats", label: "All chats", group: "Go to", to: "/chats" },
 		...chatTree(chats).map(({ chat }) => ({
 			key: `chat-${chat.id}`,
