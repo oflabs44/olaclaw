@@ -2,7 +2,7 @@ import { ArrowDown01Icon, Copy01Icon, GitBranchIcon, Idea01Icon } from "@hugeico
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
-import { type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, Suspense, use, useState } from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { ASK_TOOL, AYO_EXECUTE_APPROVAL, AYO_EXECUTE_TOOL, ayoExecuteCode, DELEGATE_TOOL } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -14,8 +14,10 @@ import type { PiRunningTool } from "@/view";
 import { forkChat } from "@/workspace-data";
 import type { ChatSummary } from "@/chats";
 import { ApprovalBlock, type ApprovalQuestion } from "./approval-block";
+import { highlightLines } from "./code-highlighter";
 import { Markdown } from "./markdown";
 import { SubagentCards } from "./subagent-card";
+import { TokenLine } from "./token-line";
 
 export type ToolResult = Extract<PiMessagePart, { type: "tool-result" }>;
 export type ToolCall = Extract<PiMessagePart, { type: "tool-call" }>;
@@ -114,8 +116,8 @@ function ToolRow({
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				<div className="my-1 grid gap-2.5 border-l-2 border-line pl-[0.95rem]">
-					<ToolBlock title="Input">{JSON.stringify(call.arguments, null, 2)}</ToolBlock>
-					{output && <ToolBlock title="Output">{output}</ToolBlock>}
+					<ToolInput call={call} />
+					{output && <ToolBlock title="Output" text={output} language={isJson(output) ? "json" : undefined} />}
 				</div>
 			</CollapsibleContent>
 		</Collapsible>
@@ -207,15 +209,62 @@ function AskBlock({ call, approval }: { call: ToolCall; approval: ApprovalQuesti
 	return <ApprovalBlock approval={approval} onDecide={choose} />;
 }
 
-function ToolBlock({ title, children }: { title: string; children: ReactNode }) {
+function HighlightedText({ text, language }: { text: string; language: string }) {
+	const lines = use(highlightLines(text, language));
+	if (!lines) return text;
+	return lines.map((tokens, index) => (
+		<Fragment key={index}>
+			{index > 0 && "\n"}
+			<TokenLine tokens={tokens} />
+		</Fragment>
+	));
+}
+
+/** A tool call's input or output. With a `language`, the colour arrives after the plain text. */
+function ToolBlock({ title, text, language }: { title: string; text: string; language?: string }) {
 	return (
 		<div>
 			<h4 className="mb-1 text-[0.78rem] font-semibold text-ink-soft">{title}</h4>
-			<pre className="overflow-x-auto rounded bg-wash px-2.5 py-2 font-mono text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">
-				{children}
+			<pre className="overflow-x-auto rounded bg-wash px-2.5 py-2 font-mono text-sm whitespace-pre-wrap [tab-size:2] [overflow-wrap:anywhere]">
+				{language ? (
+					<Suspense fallback={text}>
+						<HighlightedText text={text} language={language} />
+					</Suspense>
+				) : (
+					text
+				)}
 			</pre>
 		</div>
 	);
+}
+
+/** Output that is one JSON value gets JSON colours; a cut or half-streamed value does not parse and stays plain. */
+function isJson(text: string): boolean {
+	if (!/^\s*[[{]/.test(text)) return false;
+	try {
+		JSON.parse(text);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * The input of a tool call. The code of an `ayo_execute` call shows as code, not as one long JSON
+ * string with escaped line breaks; the rest of its arguments follow as JSON.
+ */
+function ToolInput({ call }: { call: ToolCall }) {
+	const args = call.arguments;
+	if (call.name === AYO_EXECUTE_TOOL && typeof args === "object" && args !== null && "code" in args && typeof args.code === "string") {
+		const { code, ...rest } = args;
+		return (
+			<>
+				<ToolBlock title="Code" text={code} language="javascript" />
+				{Object.keys(rest).length > 0 && <ToolBlock title="Input" text={JSON.stringify(rest, null, 2)} language="json" />}
+			</>
+		);
+	}
+	return <ToolBlock title="Input" text={JSON.stringify(args, null, 2)} language="json" />;
 }
 
 function StreamingCursor() {

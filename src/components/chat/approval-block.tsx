@@ -1,11 +1,12 @@
 import { ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
-import { type CSSProperties, type FormEvent, type ReactNode, Suspense, use } from "react";
+import { type FormEvent, type ReactNode, Suspense, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ayoExecuteParts } from "@/protocol";
 import { type HighlightedToken, highlightLines } from "./code-highlighter";
+import { TokenLine } from "./token-line";
 
 export type ApprovalQuestion = {
 	readonly question: string;
@@ -31,16 +32,7 @@ function NumberedLines({ lines, tokens }: { lines: readonly string[]; tokens?: H
 				<div key={index} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-2">
 					<span className="text-right text-ink-faint select-none">{index + 1}</span>
 					<span className="whitespace-pre-wrap [tab-size:2] [overflow-wrap:anywhere]">
-						{tokens?.[index]?.map((token, tokenIndex) => (
-							<span
-								key={tokenIndex}
-								// The same switch as Streamdown's code blocks: one variable per theme, ink when there is none.
-								className="text-[color:var(--shiki,inherit)] dark:text-[color:var(--shiki-dark,inherit)]"
-								style={{ "--shiki": token.color, "--shiki-dark": token.darkColor } as CSSProperties}
-							>
-								{token.content}
-							</span>
-						)) ?? line}
+						{tokens?.[index] ? <TokenLine tokens={tokens[index]} /> : line}
 					</span>
 				</div>
 			))}
