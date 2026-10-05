@@ -5,10 +5,15 @@ import { type CSSProperties, type FormEvent, type ReactNode, Suspense, use } fro
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ayoExecuteParts } from "@/protocol";
-import type { Approval } from "@/workspace-data";
 import { type HighlightedToken, highlightLines } from "./code-highlighter";
 
-export type ApprovalQuestion = Pick<Approval, "question" | "detail" | "code" | "options">;
+export type ApprovalQuestion = {
+	readonly question: string;
+	readonly detail?: string;
+	/** Code the answer decides on, as `ayoExecuteCode` prints it. */
+	readonly code?: string;
+	readonly options: readonly string[];
+};
 
 const optionRow =
 	"flex min-h-11 w-full cursor-pointer items-center gap-3 rounded px-3 py-2 text-left text-[0.95rem] " +
@@ -62,7 +67,8 @@ function CodePanel({ name, text, language }: { name: string; text: string; langu
 	);
 }
 
-function ApprovalCode({ params, code }: { params: string; code: string }) {
+/** The two panels of a code approval, from `ayoExecuteParts`. */
+export function ApprovalCode({ params, code }: { params: string; code: string }) {
 	return (
 		<div className="grid gap-2">
 			<CodePanel name="JavaScript" text={code} language="javascript" />
@@ -81,7 +87,7 @@ export function ApprovalCard({
 	className,
 	children,
 }: {
-	approval: Pick<Approval, "question" | "detail">;
+	approval: Pick<ApprovalQuestion, "question" | "detail">;
 	className?: string;
 	children?: ReactNode;
 }) {

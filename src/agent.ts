@@ -8,12 +8,12 @@ import { Lifecycle } from "agents/lifecycle";
 import { MCPClientManager } from "agents/mcp/client";
 import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
-import { type ApprovalRecord, Approvals } from "./approvals";
+import { type ApprovalRecord, type ApprovalSummary, Approvals } from "./approvals";
 import { type ChatSummary, Chats } from "./chats";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
-import { AYO_CALLBACK_PATH } from "./protocol";
+import { AYO_CALLBACK_PATH, ayoExecuteParts } from "./protocol";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
 import { askExtension } from "./tools/ask";
@@ -22,6 +22,8 @@ import { delegateExtension } from "./tools/delegate";
 import { memoryExtension } from "./tools/memory";
 
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
+
+const APPROVAL_LIST_LIMIT = 100;
 
 export class PiAgent extends DurableObject<Env> {
 	// The gateway retries a burst-limited vendor call itself; only a request that still fails falls back to Kimi.
@@ -145,8 +147,15 @@ export class PiAgent extends DurableObject<Env> {
 		return this.memory.list();
 	}
 
-	listApprovals(): ApprovalRecord[] {
-		return this.approvals.pending();
+	listApprovals(): ApprovalSummary[] {
+		return this.approvals.list(APPROVAL_LIST_LIMIT).map(({ code, ...approval }) => ({
+			...approval,
+			codeLineCount: code === null ? null : ayoExecuteParts(code).code.split("\n").length,
+		}));
+	}
+
+	getApproval(callId: string): ApprovalRecord | undefined {
+		return this.approvals.find(callId);
 	}
 
 	decideApproval(callId: string, answer: string): void {

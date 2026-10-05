@@ -10,26 +10,26 @@ import { AGENT_NAME } from "./protocol";
 // Chats, memories, and approvals come from the user's agent object. The other functions are typed placeholders that return
 // what exists today; wiring a feature later changes the function body.
 
-/** A decision the assistant waits for, shown in "Needs you" and in the chat that asked. */
+/** A decision the assistant asked for, shown in the approvals panel. It waits until `decision` is set. */
 export type Approval = {
-	/** The id of the `ask` or `ayo_execute` tool call that waits. */
+	/** The id of the `ask` or `ayo_execute` tool call that asked. */
 	readonly id: string;
 	readonly chatId: string;
 	readonly question: string;
 	readonly detail?: string;
-	/** Code the answer decides on, for example what an `ayo_execute` call wants to run. */
-	readonly code?: string;
 	readonly options: readonly string[];
+	/** Set when the answer decides on code, for example what an `ayo_execute` call wants to run. */
+	readonly codeLineCount?: number;
+	readonly decision?: string;
+	readonly createdAt: number;
+	readonly decidedAt?: number;
 };
 
-export type ScheduledItem = { readonly id: string; readonly title: string; readonly when: string };
-
-export type NowPanel = {
-	/** Background work. The live chat run comes from the socket, not from here. */
-	readonly working: readonly { readonly id: string; readonly title: string; readonly detail: string }[];
-	readonly needsYou: readonly Approval[];
-	readonly comingUp: readonly ScheduledItem[];
-	readonly doneToday: readonly ScheduledItem[];
+/** A decided approval in full. `code` is the text Oladayo read before he answered. */
+export type DecidedApproval = Approval & {
+	readonly code?: string;
+	readonly decision: string;
+	readonly decidedAt: number;
 };
 
 export type Routine = { readonly id: string; readonly title: string; readonly schedule: string };
@@ -63,18 +63,40 @@ export const setChatModel = createServerFn({ method: "POST" })
 	.validator(z.object({ chatId: z.string(), model: z.string() }))
 	.handler(({ data }): Promise<void> => userAgent().setChatModel(data.chatId, data.model));
 
-export const getNowPanel = createServerFn().handler(async (): Promise<NowPanel> => {
-	const pending = await userAgent().listApprovals();
-	const needsYou = pending.map((approval) => ({
+/** The waiting approvals first, then the decided ones, newest first. Without the code: see `getDecidedApproval`. */
+export const getApprovals = createServerFn().handler(async (): Promise<Approval[]> => {
+	const approvals = await userAgent().listApprovals();
+	return approvals.map((approval) => ({
 		id: approval.callId,
 		chatId: approval.sessionId,
 		question: approval.question,
 		detail: approval.detail ?? undefined,
-		code: approval.code ?? undefined,
 		options: approval.options,
+		codeLineCount: approval.codeLineCount ?? undefined,
+		decision: approval.decision ?? undefined,
+		createdAt: approval.createdAt,
+		decidedAt: approval.decidedAt ?? undefined,
 	}));
-	return { working: [], needsYou, comingUp: [], doneToday: [] };
 });
+
+/** Null for an approval that does not exist or still waits: a waiting one shows its code only in its chat. */
+export const getDecidedApproval = createServerFn()
+	.validator(z.object({ callId: z.string() }))
+	.handler(async ({ data }): Promise<DecidedApproval | null> => {
+		const approval = await userAgent().getApproval(data.callId);
+		if (!approval || approval.decision === null || approval.decidedAt === null) return null;
+		return {
+			id: approval.callId,
+			chatId: approval.sessionId,
+			question: approval.question,
+			detail: approval.detail ?? undefined,
+			options: approval.options,
+			code: approval.code ?? undefined,
+			decision: approval.decision,
+			createdAt: approval.createdAt,
+			decidedAt: approval.decidedAt,
+		};
+	});
 
 export const decideApproval = createServerFn({ method: "POST" })
 	.validator(z.object({ callId: z.string(), answer: z.string() }))

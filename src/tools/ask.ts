@@ -6,7 +6,7 @@ import { ASK_TOOL } from "../protocol";
 const USAGE =
 	"Use ask only when Oladayo's choice changes what you do next and neither memory nor this conversation answers it; put the option you recommend first.";
 
-/** The call stays open until Oladayo picks an option, in the chat or in the Now panel. */
+/** The call stays open until Oladayo picks an option, in the chat or in the approvals panel. */
 function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 	return defineTool({
 		name: ASK_TOOL,

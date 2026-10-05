@@ -65,6 +65,12 @@ export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; clos
 	const { chat, depth } = row;
 	// Only the open chat has a socket, so only it can show a run.
 	const isRunning = usePiSession((state) => state.chatId === chat.id && state.running);
+	// The approvals pane of an open chat shows only that chat, so the row says when another chat waits.
+	const needsYou = useLoaderData({
+		from: "__root__",
+		select: (data) =>
+			data.approvals.some((approval) => approval.chatId === chat.id && approval.decision === undefined),
+	});
 	return (
 		<div className="relative min-w-0">
 			{Array.from({ length: depth }, (_, level) => (
@@ -94,6 +100,12 @@ export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; clos
 					<>
 						<span className="ml-1 size-1.5 shrink-0 animate-stamp rounded-full bg-primary" aria-hidden="true" />
 						<span className="sr-only">, working</span>
+					</>
+				)}
+				{needsYou && (
+					<>
+						<span className="ml-auto size-1.5 shrink-0 rounded-full bg-star" aria-hidden="true" />
+						<span className="sr-only">, needs you</span>
 					</>
 				)}
 			</Link>
@@ -172,7 +184,13 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
 				))}
 			</div>
-			<div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
+			{/* The line runs to the edges of the pane or drawer, through their side padding. */}
+			<div
+				className={cn(
+					"mt-auto flex items-center justify-between gap-2 border-t border-line pt-3",
+					closesDrawer ? "-mx-3 px-3" : "-mx-1.5 px-1.5",
+				)}
+			>
 				<div className="flex min-w-0 items-center pl-[0.7rem] text-[0.8rem] text-ink-soft">
 					<p
 						className={statusItemClass}

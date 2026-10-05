@@ -164,8 +164,8 @@ export function PiSessionProvider({
 		const messages = ownMessages();
 		const isFirstRun = messages.filter((message) => message.role === "user").length === 1;
 		const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
-		// "Needs you" lists the open questions, so it reloads when `ask` starts and when it ends:
-		// answered here, answered from the Now panel, or withdrawn by a Stop. An approved `ayo_execute`
+		// The approvals panel lists the questions, so it reloads when `ask` starts and when it ends:
+		// answered here, answered from the panel, or withdrawn by a Stop. An approved `ayo_execute`
 		// call runs on, so its update counts too.
 		const askChanged = events.some((agentEvent) => {
 			if (agentEvent.type === "tool_execution_start" || agentEvent.type === "tool_execution_end") {

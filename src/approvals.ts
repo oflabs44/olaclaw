@@ -8,6 +8,14 @@ export type ApprovalRecord = {
 	readonly code: string | null;
 	readonly options: readonly string[];
 	readonly decision: string | null;
+	readonly createdAt: number;
+	readonly decidedAt: number | null;
+};
+
+/** An approval for a list: the code stays behind, and only its length goes along. */
+export type ApprovalSummary = Omit<ApprovalRecord, "code"> & {
+	/** Null when the answer decides on no code. */
+	readonly codeLineCount: number | null;
 };
 
 type ApprovalRow = {
@@ -18,11 +26,13 @@ type ApprovalRow = {
 	code: string | null;
 	options: string;
 	decision: string | null;
+	created_at: number;
+	decided_at: number | null;
 };
 
 const MAX_ANSWER_LENGTH = 500;
 
-const COLUMNS = "call_id, session_id, question, detail, code, options, decision";
+const COLUMNS = "call_id, session_id, question, detail, code, options, decision, created_at, decided_at";
 
 function toRecord(row: ApprovalRow): ApprovalRecord {
 	return {
@@ -33,6 +43,8 @@ function toRecord(row: ApprovalRow): ApprovalRecord {
 		code: row.code,
 		options: JSON.parse(row.options),
 		decision: row.decision,
+		createdAt: row.created_at,
+		decidedAt: row.decided_at,
 	};
 }
 
@@ -55,7 +67,7 @@ export class Approvals {
 		}
 	}
 
-	#find(callId: string): ApprovalRecord | undefined {
+	find(callId: string): ApprovalRecord | undefined {
 		const row = this.#sql.exec<ApprovalRow>(`SELECT ${COLUMNS} FROM approval WHERE call_id = ?`, callId).toArray()[0];
 		return row && toRecord(row);
 	}
@@ -72,7 +84,7 @@ export class Approvals {
 		detail: string | undefined,
 		code?: string,
 	): void {
-		const existing = this.#find(callId);
+		const existing = this.find(callId);
 		if (existing) {
 			// Call ids come from the model provider. A repeat in another chat must not hand that chat's answer over.
 			if (existing.sessionId !== session) throw new Error(`Call id ${callId} already asks in another chat`);
@@ -100,7 +112,7 @@ export class Approvals {
 	 * is one of the options or free text. `session` limits the decision to approvals of that chat.
 	 */
 	decide(callId: string, answer: string, session?: string): void {
-		const approval = this.#find(callId);
+		const approval = this.find(callId);
 		if (!approval || (session !== undefined && approval.sessionId !== session)) {
 			throw new Error("Unknown approval");
 		}
@@ -111,10 +123,13 @@ export class Approvals {
 		this.#waiters.get(callId)?.(text);
 	}
 
-	/** Undecided, oldest first. */
-	pending(): ApprovalRecord[] {
+	/** The undecided ones first, then the decided ones; newest first in each group. */
+	list(limit: number): ApprovalRecord[] {
 		return this.#sql
-			.exec<ApprovalRow>(`SELECT ${COLUMNS} FROM approval WHERE decision IS NULL ORDER BY created_at, id`)
+			.exec<ApprovalRow>(
+				`SELECT ${COLUMNS} FROM approval ORDER BY decision IS NOT NULL, created_at DESC, id DESC LIMIT ?`,
+				limit,
+			)
 			.toArray()
 			.map(toRecord);
 	}
@@ -124,7 +139,7 @@ export class Approvals {
 	 * that lands when no call waits (after a restart, before the rerun) leaves the row for the rerun.
 	 */
 	wait(callId: string, signal: AbortSignal | undefined): Promise<string> {
-		const approval = this.#find(callId);
+		const approval = this.find(callId);
 		if (!approval) throw new Error("Unknown approval");
 		if (approval.decision !== null) return Promise.resolve(approval.decision);
 

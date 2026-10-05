@@ -1,4 +1,9 @@
-import { Activity01Icon, BubbleChatIcon, SidebarLeft01Icon, SidebarRight01Icon } from "@hugeicons/core-free-icons";
+import {
+	BubbleChatIcon,
+	CheckmarkCircle02Icon,
+	SidebarLeft01Icon,
+	SidebarRight01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLoaderData } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -7,8 +12,8 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type PanelSide, usePanel } from "./panels";
 
-const PANEL_NAMES: Record<PanelSide, string> = { left: "left panel", right: "Now panel" };
-const PHONE_LABELS: Record<PanelSide, string> = { left: "Open chats", right: "Open Now" };
+const PANEL_NAMES: Record<PanelSide, string> = { left: "left panel", right: "approvals panel" };
+const PHONE_LABELS: Record<PanelSide, string> = { left: "Open chats", right: "Open approvals" };
 const PANEL_KEYS: Record<PanelSide, string> = { left: "[", right: "]" };
 
 function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode }) {
@@ -44,7 +49,10 @@ function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode 
  * `status` sits after the title, for example the chat's "Working" indicator.
  */
 export function PageHeader({ title, subtitle, status }: { title: string; subtitle?: ReactNode; status?: ReactNode }) {
-	const needsYouCount = useLoaderData({ from: "__root__", select: (data) => data.now.needsYou.length });
+	const needsYouCount = useLoaderData({
+		from: "__root__",
+		select: (data) => data.approvals.filter((approval) => approval.decision === undefined).length,
+	});
 
 	return (
 		<header className="relative flex items-center gap-2.5 border-b border-line px-3 py-[0.55rem] max-wide:bg-paper max-wide:px-2 max-wide:py-[0.35rem] max-wide:pt-[max(0.35rem,env(safe-area-inset-top))]">
@@ -59,7 +67,7 @@ export function PageHeader({ title, subtitle, status }: { title: string; subtitl
 			{status}
 			<PanelToggle side="right">
 				<HugeiconsIcon icon={SidebarRight01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
-				<HugeiconsIcon icon={Activity01Icon} size={20} strokeWidth={1.5} className="wide:hidden" />
+				<HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} strokeWidth={1.5} className="wide:hidden" />
 				{needsYouCount > 0 && (
 					<span
 						className="absolute top-2 right-2 size-[7px] rounded-full bg-star shadow-[0_0_0_2px_var(--paper)] wide:hidden"

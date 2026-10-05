@@ -14,7 +14,7 @@ import { z } from "zod";
 import { Chrome } from "@/components/workspace/chrome";
 import { Omnibox } from "@/components/workspace/omnibox";
 import { PageHeader } from "@/components/workspace/page-header";
-import { LeftPane, NowPane } from "@/components/workspace/panes";
+import { ApprovalsPane, LeftPane } from "@/components/workspace/panes";
 import { WorkspaceKeys } from "@/components/workspace/workspace-keys";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -23,7 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useKeyboardViewport } from "@/lib/use-keyboard-viewport";
 import appCss from "@/styles.css?url";
 import { getThemePreference, SYSTEM_THEME_SCRIPT, type ThemePreference } from "@/theme";
-import { getAyoConnection, getChats, getNowPanel } from "@/workspace-data";
+import { getApprovals, getAyoConnection, getChats } from "@/workspace-data";
 
 declare module "@tanstack/react-router" {
 	interface StaticDataRouteOption {
@@ -38,6 +38,8 @@ const workspaceSearch = z.object({
 	left: z.enum(["open", "closed"]).optional().catch(undefined),
 	right: z.enum(["open", "closed"]).optional().catch(undefined),
 	omni: z.boolean().optional().catch(undefined),
+	/** The decided approval that is open in full: the id of its tool call. */
+	approval: z.string().optional().catch(undefined),
 });
 
 export type WorkspaceSearch = z.infer<typeof workspaceSearch>;
@@ -60,14 +62,14 @@ export const Route = createRootRoute({
 	validateSearch: workspaceSearch,
 	search: { middlewares: [retainSearchParams(["left", "right"])] },
 	loader: async () => {
-		const [theme, chats, now, isAyoConnected] = await Promise.all([
+		const [theme, chats, approvals, isAyoConnected] = await Promise.all([
 			getThemePreference(),
 			getChats(),
-			getNowPanel(),
+			getApprovals(),
 			// A status dot must not break the app when Ayo or the MCP client fails.
 			getAyoConnection().catch(() => false),
 		]);
-		return { theme, chats, now, isAyoConnected };
+		return { theme, chats, approvals, isAyoConnected };
 	},
 	// This tab invalidates after its own chat changes. After 30 s the next navigation reloads, which
 	// picks up chats made on other devices.
@@ -121,7 +123,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 /**
- * The chrome strip on wide screens, then the stage: left pane, the card with the page, Now pane.
+ * The chrome strip on wide screens, then the stage: left pane, the card with the page, approvals pane.
  * Phones drop the chrome and the card frame; the panes become a drawer and a bottom sheet.
  */
 function Workspace() {
@@ -136,7 +138,7 @@ function Workspace() {
 						<main className="flex min-w-0 flex-1 flex-col bg-sheet max-wide:bg-paper wide:rounded-t-card wide:border wide:border-b-0 wide:border-line wide:shadow-float">
 							<Outlet />
 						</main>
-						<NowPane />
+						<ApprovalsPane />
 					</div>
 				</div>
 				<Omnibox />

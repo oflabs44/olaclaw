@@ -188,7 +188,7 @@ function ayoSearchTool(mcp: AyoClient) {
 	});
 }
 
-/** The call stays open until Oladayo decides, in the chat or in the Now panel. Only his approval runs the code. */
+/** The call stays open until Oladayo decides, in the chat or in the approvals panel. Only his approval runs the code. */
 function ayoExecuteTool(mcp: AyoClient, approvals: Pick<Approvals, "open" | "wait">) {
 	return defineTool({
 		name: AYO_EXECUTE_TOOL,
