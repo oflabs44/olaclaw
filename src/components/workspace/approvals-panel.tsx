@@ -1,11 +1,10 @@
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useLoaderData, useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router";
 import { cn } from "cn";
 import { type ReactNode, Suspense, use } from "react";
 import { ApprovalBlock, ApprovalCard, ApprovalCode } from "@/components/chat/approval-block";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
@@ -53,78 +52,41 @@ function loadApproval(callId: string): Promise<DecidedApproval | null> {
 	return load;
 }
 
+/** The full request of a decided approval, under its row: the code Oladayo read, or the options with his choice marked. */
 function ApprovalDetail({ callId }: { callId: string }) {
 	const approval = use(loadApproval(callId));
-	if (!approval) return <DialogTitle className="pr-9 touch:pr-12">This approval could not be loaded</DialogTitle>;
+	if (!approval) return <p className="text-[0.85rem] text-ink-soft">This approval could not be loaded.</p>;
+	if (approval.code) return <ApprovalCode {...ayoExecuteParts(approval.code)} />;
 
 	return (
 		<>
-			<div className="grid gap-1 pr-9 touch:pr-12">
-				<p className="text-[0.82rem] text-ink-soft">Phoebe asked</p>
-				<DialogTitle className="text-[1.02rem] leading-snug">{approval.question}</DialogTitle>
-				{approval.detail && <p className="text-[0.9rem] leading-snug text-ink-soft">{approval.detail}</p>}
-			</div>
-			{approval.code ? (
-				<ApprovalCode {...ayoExecuteParts(approval.code)} />
-			) : (
-				<ul className="grid gap-1.5" aria-label="Options">
-					{approval.options.map((option) => {
-						const isChosen = option === approval.decision;
-						return (
-							<li
-								key={option}
-								className={cn(
-									"flex min-h-11 items-center gap-3 rounded px-3 py-2 text-[0.95rem]",
-									isChosen ? "bg-wash-strong font-medium" : "border border-line text-ink-soft",
-								)}
-							>
-								<span className="min-w-0 flex-1">{option}</span>
-								{isChosen && <span className="shrink-0 text-[0.75rem] font-normal text-ink-soft">Your choice</span>}
-							</li>
-						);
-					})}
-				</ul>
-			)}
-			<p className="text-[0.9rem] text-ink-soft [overflow-wrap:anywhere]">
-				You chose{" "}
-				<span className="font-medium text-ink">{choiceText(approval.options, approval.decision)}</span> ·{" "}
-				{formatWhen(approval.decidedAt)}
-			</p>
+			{approval.detail && <p className="text-[0.85rem] leading-snug text-ink-soft">{approval.detail}</p>}
+			<ul className="grid gap-1" aria-label="Options">
+				{approval.options.map((option) => {
+					const isChosen = option === approval.decision;
+					return (
+						<li
+							key={option}
+							className={cn(
+								"flex items-center gap-3 rounded px-2.5 py-1.5 text-[0.88rem]",
+								isChosen ? "bg-wash-strong font-medium" : "border border-line text-ink-soft",
+							)}
+						>
+							<span className="min-w-0 flex-1">{option}</span>
+							{isChosen && <span className="shrink-0 text-[0.75rem] font-normal text-ink-soft">Your choice</span>}
+						</li>
+					);
+				})}
+			</ul>
 		</>
 	);
 }
 
-/** The open decided approval in full. Its id is a search param, so a reload keeps it open. */
-function ApprovalDialog() {
-	const openCallId = useSearch({ from: "__root__", select: (search) => search.approval });
-	const navigate = useNavigate();
-
-	return (
-		<Dialog
-			open={openCallId !== undefined}
-			onOpenChange={(open) => {
-				if (!open) void navigate({ to: ".", search: (previous) => ({ ...previous, approval: undefined }), replace: true });
-			}}
-		>
-			{/* The dialog scrolls as a whole, so the code panels inside stay unclipped. */}
-			<DialogContent className="top-[8vh] max-h-[84dvh] w-[min(44rem,calc(100%-2rem))] overflow-y-auto p-4">
-				<DialogClose render={<Button icon aria-label="Close" className="absolute top-2 right-2" />}>
-					<HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.5} />
-				</DialogClose>
-				{openCallId !== undefined && (
-					<Suspense fallback={<DialogTitle className="pr-9 font-normal text-ink-soft touch:pr-12">Loading…</DialogTitle>}>
-						<ApprovalDetail callId={openCallId} />
-					</Suspense>
-				)}
-			</DialogContent>
-		</Dialog>
-	);
-}
-
 /**
- * A decided approval as one row of the history; it opens the full request. A question shows what was
- * asked and the answer. A code approval shows what the code calls in Ayo, because its question is
- * always the same, and names the answer only when the code did not run.
+ * A decided approval as one row of the history; it opens the full request under itself. A question
+ * shows what was asked and the answer. A code approval shows what the code calls in Ayo, because its
+ * question is always the same, and names the answer only when the code did not run. The open row is
+ * a search param, so a reload keeps it open; one row is open at a time.
  */
 function DecidedRow({
 	approval,
@@ -136,24 +98,29 @@ function DecidedRow({
 	/** Shown under the row's lines, for example where the question comes from. */
 	children?: ReactNode;
 }) {
+	const isOpen = useSearch({ from: "__root__", select: (search) => search.approval === approval.id });
 	const navigate = useNavigate();
 	const lineCount = approval.codeLineCount;
 	const isCode = lineCount !== undefined;
 	const calls = approval.codeCalls ?? [];
 	const ran = isCode && decision === approval.options[0];
 
-	function open() {
+	function toggle() {
 		// A load that failed must not stay, and a load is small, so each opening starts a new one.
-		approvalLoads.delete(approval.id);
-		void navigate({ to: ".", search: (previous) => ({ ...previous, approval: approval.id }), replace: true });
+		if (!isOpen) approvalLoads.delete(approval.id);
+		void navigate({
+			to: ".",
+			search: (previous) => ({ ...previous, approval: isOpen ? undefined : approval.id }),
+			replace: true,
+		});
 	}
 
 	return (
 		<div className="grid text-[0.9rem]">
 			<button
 				type="button"
-				aria-haspopup="dialog"
-				onClick={open}
+				aria-expanded={isOpen}
+				onClick={toggle}
 				className="grid cursor-pointer gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-wash touch:min-h-11"
 			>
 				<span className="flex items-baseline justify-between gap-3">
@@ -164,9 +131,15 @@ function DecidedRow({
 					) : (
 						<span className="min-w-0 leading-snug font-medium">{approval.question}</span>
 					)}
-					{approval.decidedAt !== undefined && (
-						<span className="shrink-0 text-[0.8rem] text-ink-faint">{formatWhen(approval.decidedAt)}</span>
-					)}
+					<span className="flex shrink-0 items-center gap-1 text-[0.8rem] text-ink-faint">
+						{approval.decidedAt !== undefined && formatWhen(approval.decidedAt)}
+						<HugeiconsIcon
+							icon={ArrowDown01Icon}
+							size={14}
+							strokeWidth={1.75}
+							className={cn("transition-transform", isOpen && "rotate-180")}
+						/>
+					</span>
 				</span>
 				<span className="text-[0.82rem] text-ink-soft [overflow-wrap:anywhere]">
 					{isCode && `${lineCount} ${lineCount === 1 ? "line" : "lines"}`}
@@ -174,6 +147,13 @@ function DecidedRow({
 					{(!isCode || !ran) && choiceText(approval.options, decision)}
 				</span>
 			</button>
+			{isOpen && (
+				<div className="grid gap-2 px-2 pt-1 pb-2.5">
+					<Suspense fallback={<p className="text-[0.85rem] text-ink-soft">Loading…</p>}>
+						<ApprovalDetail callId={approval.id} />
+					</Suspense>
+				</div>
+			)}
 			{children && <div className="flex min-w-0 px-2 pb-2">{children}</div>}
 		</div>
 	);
@@ -282,7 +262,6 @@ export function ApprovalsPanel() {
 						),
 				)}
 			</ul>
-			<ApprovalDialog />
 		</div>
 	);
 }
