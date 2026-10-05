@@ -57,6 +57,14 @@ export function ayoExecuteParts(shown: string): { params: string; code: string }
 	return { params: shown.slice(0, border), code: shown.slice(border + 2) };
 }
 
+/**
+ * The Ayo capabilities a piece of `ayo_execute` code names as `ayo.<name>(`, in order of first use.
+ * A label for the history only: code can also reach a capability in ways this does not see.
+ */
+export function ayoCalls(code: string): string[] {
+	return [...new Set([...code.matchAll(/\bayo\.([A-Za-z_]\w*)\s*\(/g)].map((match) => match[1]))];
+}
+
 /** What an `ayo_execute` call reports once Oladayo approved it; the chat then stops asking. */
 export type AyoExecuteDetails = { approved: true };
 

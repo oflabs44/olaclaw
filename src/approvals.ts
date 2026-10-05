@@ -16,6 +16,8 @@ export type ApprovalRecord = {
 export type ApprovalSummary = Omit<ApprovalRecord, "code"> & {
 	/** Null when the answer decides on no code. */
 	readonly codeLineCount: number | null;
+	/** The Ayo capabilities the code names; empty without code. */
+	readonly codeCalls: readonly string[];
 };
 
 type ApprovalRow = {

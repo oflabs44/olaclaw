@@ -13,7 +13,7 @@ import { type ChatSummary, Chats } from "./chats";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
-import { AYO_CALLBACK_PATH, ayoExecuteParts } from "./protocol";
+import { AYO_CALLBACK_PATH, ayoCalls, ayoExecuteParts } from "./protocol";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
 import { askExtension } from "./tools/ask";
@@ -148,10 +148,14 @@ export class PiAgent extends DurableObject<Env> {
 	}
 
 	listApprovals(): ApprovalSummary[] {
-		return this.approvals.list(APPROVAL_LIST_LIMIT).map(({ code, ...approval }) => ({
-			...approval,
-			codeLineCount: code === null ? null : ayoExecuteParts(code).code.split("\n").length,
-		}));
+		return this.approvals.list(APPROVAL_LIST_LIMIT).map(({ code, ...approval }) => {
+			const source = code === null ? null : ayoExecuteParts(code).code;
+			return {
+				...approval,
+				codeLineCount: source === null ? null : source.split("\n").length,
+				codeCalls: source === null ? [] : ayoCalls(source),
+			};
+		});
 	}
 
 	getApproval(callId: string): ApprovalRecord | undefined {

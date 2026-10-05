@@ -20,6 +20,8 @@ export type Approval = {
 	readonly options: readonly string[];
 	/** Set when the answer decides on code, for example what an `ayo_execute` call wants to run. */
 	readonly codeLineCount?: number;
+	/** The Ayo capabilities that code names, as a label for the history. */
+	readonly codeCalls?: readonly string[];
 	readonly decision?: string;
 	readonly createdAt: number;
 	readonly decidedAt?: number;
@@ -73,6 +75,7 @@ export const getApprovals = createServerFn().handler(async (): Promise<Approval[
 		detail: approval.detail ?? undefined,
 		options: approval.options,
 		codeLineCount: approval.codeLineCount ?? undefined,
+		codeCalls: approval.codeCalls,
 		decision: approval.decision ?? undefined,
 		createdAt: approval.createdAt,
 		decidedAt: approval.decidedAt ?? undefined,

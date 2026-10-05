@@ -15,14 +15,21 @@ import { useIsPhone } from "./panels";
 
 const TIME_ZONE = "Europe/Berlin";
 
-/** The time for today, the date for a day before. A fixed locale and zone, so the server render and the hydrating client agree. */
+/** The time for today, the date for a day before, with the year for another year. A fixed locale and zone, so the server render and the hydrating client agree. */
 function formatWhen(epochMilliseconds: number): string {
 	const date = new Date(epochMilliseconds);
 	const day = (value: Date) => value.toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
 	if (day(date) === day(new Date())) {
 		return date.toLocaleTimeString("en-GB", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
 	}
-	return date.toLocaleDateString("en-GB", { timeZone: TIME_ZONE, day: "numeric", month: "short", year: "numeric" });
+	// The year only when it is not this one: the pane is narrow.
+	const year = (value: Date) => value.toLocaleDateString("en-GB", { timeZone: TIME_ZONE, year: "numeric" });
+	return date.toLocaleDateString("en-GB", {
+		timeZone: TIME_ZONE,
+		day: "numeric",
+		month: "short",
+		year: year(date) === year(new Date()) ? undefined : "numeric",
+	});
 }
 
 /** What Oladayo chose: the option as Phoebe wrote it, or his own words in quotation marks. */
@@ -113,19 +120,26 @@ function ApprovalDialog() {
 	);
 }
 
-/** A decided approval: the question, the choice in one line, and when. It opens the full request. */
-function DecidedCard({
+/**
+ * A decided approval as one row of the history; it opens the full request. A question shows what was
+ * asked and the answer. A code approval shows what the code calls in Ayo, because its question is
+ * always the same, and names the answer only when the code did not run.
+ */
+function DecidedRow({
 	approval,
 	decision,
 	children,
 }: {
 	approval: Approval;
 	decision: string;
-	/** Shown under the card's lines, for example where the question comes from. */
+	/** Shown under the row's lines, for example where the question comes from. */
 	children?: ReactNode;
 }) {
 	const navigate = useNavigate();
 	const lineCount = approval.codeLineCount;
+	const isCode = lineCount !== undefined;
+	const calls = approval.codeCalls ?? [];
+	const ran = isCode && decision === approval.options[0];
 
 	function open() {
 		// A load that failed must not stay, and a load is small, so each opening starts a new one.
@@ -134,27 +148,32 @@ function DecidedCard({
 	}
 
 	return (
-		<div className="grid rounded-card border border-line bg-sheet text-[0.9rem]">
+		<div className="grid text-[0.9rem]">
 			<button
 				type="button"
 				aria-haspopup="dialog"
 				onClick={open}
-				className="grid cursor-pointer gap-0.5 rounded-card px-3 py-2.5 text-left transition-colors hover:bg-wash-soft touch:min-h-11"
+				className="grid cursor-pointer gap-0.5 rounded px-2 py-2 text-left transition-colors hover:bg-wash touch:min-h-11"
 			>
-				<span className="leading-snug font-medium">{approval.question}</span>
-				<span className="flex min-w-0 gap-1.5 text-ink-soft">
-					<span className="truncate">{choiceText(approval.options, decision)}</span>
-					{lineCount !== undefined && (
-						<span className="shrink-0">
-							· {lineCount} {lineCount === 1 ? "line" : "lines"}
+				<span className="flex items-baseline justify-between gap-3">
+					{isCode ? (
+						<span className="min-w-0 font-mono text-[0.8rem] leading-snug [overflow-wrap:anywhere]">
+							{calls.length > 0 ? calls.join(", ") : "Code in Ayo"}
 						</span>
+					) : (
+						<span className="min-w-0 leading-snug font-medium">{approval.question}</span>
+					)}
+					{approval.decidedAt !== undefined && (
+						<span className="shrink-0 text-[0.8rem] text-ink-faint">{formatWhen(approval.decidedAt)}</span>
 					)}
 				</span>
-				{approval.decidedAt !== undefined && (
-					<span className="text-[0.82rem] text-ink-faint">{formatWhen(approval.decidedAt)}</span>
-				)}
+				<span className="text-[0.82rem] text-ink-soft [overflow-wrap:anywhere]">
+					{isCode && `${lineCount} ${lineCount === 1 ? "line" : "lines"}`}
+					{isCode && !ran && ", not run: "}
+					{(!isCode || !ran) && choiceText(approval.options, decision)}
+				</span>
 			</button>
-			{children && <div className="flex min-w-0 px-3 pb-2.5">{children}</div>}
+			{children && <div className="flex min-w-0 px-2 pb-2">{children}</div>}
 		</div>
 	);
 }
@@ -171,7 +190,23 @@ export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
 	const router = useRouter();
 	const approvals =
 		openChatId === undefined ? allApprovals : allApprovals.filter((approval) => approval.chatId === openChatId);
+	const waiting = approvals.filter((approval) => approval.decision === undefined);
 	const heading = "px-2 py-1 text-[0.95rem] font-semibold";
+
+	// On a page without a chat, each entry says which chat it comes from.
+	function chatLink(approval: Approval) {
+		return (
+			openChatId === undefined && (
+				<Link
+					to="/chats/$chatId"
+					params={{ chatId: approval.chatId }}
+					className="truncate text-[0.82rem] text-ink-soft underline underline-offset-4"
+				>
+					{chats.find((chat) => chat.id === approval.chatId)?.title ?? "Chat"}
+				</Link>
+			)
+		);
+	}
 
 	// Not through the chat socket: that one answers only for the open chat.
 	async function decide(callId: string, answer: string) {
@@ -199,52 +234,50 @@ export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
 					</EmptyDescription>
 				</Empty>
 			)}
-			<ul className="grid gap-2 px-0.5">
-				{approvals.map((approval) => {
-					const chatLink = openChatId === undefined && (
-						<Link
-							to="/chats/$chatId"
-							params={{ chatId: approval.chatId }}
-							className="truncate text-[0.82rem] text-ink-soft underline underline-offset-4"
-						>
-							{chats.find((chat) => chat.id === approval.chatId)?.title ?? "Chat"}
-						</Link>
-					);
-					const className = "px-3 py-2.5 text-[0.9rem]";
-					let card: ReactNode;
-					if (approval.decision !== undefined) {
-						card = (
-							<DecidedCard approval={approval} decision={approval.decision}>
-								{chatLink}
-							</DecidedCard>
+			{waiting.length > 0 && (
+				<ul className="grid gap-2 px-0.5">
+					{waiting.map((approval) => {
+						const className = "px-3 py-2.5 text-[0.9rem]";
+						return (
+							<li key={approval.id}>
+								{approval.codeLineCount !== undefined ? (
+									// This pane is too narrow to read code, and Oladayo must read it before he answers.
+									<ApprovalCard approval={approval} className={className}>
+										{chatLink(approval)}
+										<Button
+											variant="quiet"
+											nativeButton={false}
+											render={<Link to="/chats/$chatId" params={{ chatId: approval.chatId }} />}
+										>
+											Review in chat
+										</Button>
+									</ApprovalCard>
+								) : (
+									<ApprovalBlock
+										approval={approval}
+										onDecide={(answer) => decide(approval.id, answer)}
+										className={className}
+									>
+										{chatLink(approval)}
+									</ApprovalBlock>
+								)}
+							</li>
 						);
-					} else if (approval.codeLineCount !== undefined) {
-						// This pane is too narrow to read code, and Oladayo must read it before he answers.
-						card = (
-							<ApprovalCard approval={approval} className={className}>
-								{chatLink}
-								<Button
-									variant="quiet"
-									nativeButton={false}
-									render={<Link to="/chats/$chatId" params={{ chatId: approval.chatId }} />}
-								>
-									Review in chat
-								</Button>
-							</ApprovalCard>
-						);
-					} else {
-						card = (
-							<ApprovalBlock
-								approval={approval}
-								onDecide={(answer) => decide(approval.id, answer)}
-								className={className}
-							>
-								{chatLink}
-							</ApprovalBlock>
-						);
-					}
-					return <li key={approval.id}>{card}</li>;
-				})}
+					})}
+				</ul>
+			)}
+			{/* The history is a plain list: many entries of the same kind read better as rows than as cards. */}
+			<ul className="divide-y divide-line">
+				{approvals.map(
+					(approval) =>
+						approval.decision !== undefined && (
+							<li key={approval.id} className="py-0.5">
+								<DecidedRow approval={approval} decision={approval.decision}>
+									{chatLink(approval)}
+								</DecidedRow>
+							</li>
+						),
+				)}
 			</ul>
 			{/* This panel renders twice, as the pane and as the phone sheet. Only the one in use holds the dialog. */}
 			{isSheet === isPhone && <ApprovalDialog />}
