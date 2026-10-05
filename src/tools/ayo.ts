@@ -8,6 +8,8 @@ import { errorResult } from "./fetch-url";
 const AYO_SERVER_ID = "ayo";
 const AYO_URL = "https://ayo.oflabs.dev/mcp";
 const MAX_OUTPUT_BYTES = 20_000;
+// A line has at least one byte, so this line limit never cuts before the byte limit does.
+const OUTPUT_LIMITS = { maxBytes: MAX_OUTPUT_BYTES, maxLines: MAX_OUTPUT_BYTES };
 // Leaves room for the <ayo_result> wrapper under the output limit, which would cut the closing tag off.
 const MAX_TEXT_BYTES = 19_000;
 // A wake restores the connection in the background; a call or a page load waits this long for it.
@@ -135,19 +137,22 @@ export async function recallFromAyo(
 		const block = Array.isArray(answer.content) ? answer.content[0] : undefined;
 		const body: unknown = JSON.parse(block?.type === "text" ? block.text : "null");
 		if (answer.isError === true || typeof body !== "object" || body === null || !("result" in body)) {
-			throw new Error(`unexpected answer: ${block?.type === "text" ? block.text.slice(0, 200) : "no text"}`);
+			throw new Error("unexpected answer shape");
 		}
 		const pages = Array.isArray(body.result) ? body.result : [];
 		if (pages.length === 0) return untrusted("memory_recall", "Nothing in Ayo's memory matches.");
 		const lines = pages.map((page, index) => {
-			const content = String(page.content ?? "");
+			// One line per page: the caller's line limit must not cut the closing tag off.
+			const content = String(page.content ?? "").replace(/\s+/g, " ");
 			const cut = content.length > MAX_MEMORY_CHARACTERS ? `${content.slice(0, MAX_MEMORY_CHARACTERS)}…` : content;
-			return `${index + 1}. [${page.path}, ${String(page.updatedAt).slice(0, 10)}] ${page.title}\n${cut}`;
+			const title = String(page.title ?? "").replace(/\s+/g, " ");
+			return `${index + 1}. [${page.path}, ${String(page.updatedAt).slice(0, 10)}] ${title}: ${cut}`;
 		});
-		return untrusted("memory_recall", lines.join("\n\n"));
+		return untrusted("memory_recall", lines.join("\n"));
 	} catch (error) {
 		if (signal?.aborted) throw error;
-		console.error(`Ayo memory recall failed for ${JSON.stringify(query)}`, error);
+		// The query and the memory text stay out of the logs.
+		console.error("Ayo memory recall failed", error instanceof Error ? error.message : error);
 		return undefined;
 	}
 }
@@ -174,7 +179,7 @@ function ayoSearchTool(mcp: AyoClient) {
 			memoryContext,
 		}),
 		replay: "safe",
-		outputLimits: { maxBytes: MAX_OUTPUT_BYTES },
+		outputLimits: OUTPUT_LIMITS,
 		execute: (args, _api, context) => callAyo(mcp, "search", args, context.abortSignal),
 	});
 }
@@ -195,7 +200,7 @@ function ayoExecuteTool(mcp: AyoClient, approvals: Pick<Approvals, "open" | "wai
 		}),
 		// A rerun finds the approval the first run opened, and the memo below stops a second run of the code.
 		replay: "safe",
-		outputLimits: { maxBytes: MAX_OUTPUT_BYTES },
+		outputLimits: OUTPUT_LIMITS,
 		async execute(args, api, context) {
 			// Before the question, so Oladayo does not approve code that cannot run.
 			if (!(await isAyoConnected(mcp))) return errorResult(NOT_CONNECTED);

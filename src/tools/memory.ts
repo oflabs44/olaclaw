@@ -52,7 +52,7 @@ export function memoryExtension(memory: Memory, ayoMemory: OtherMemory) {
 		description:
 			"Search long-term memory (facts and notes) for entries that contain every word of the query, newest first. Use short keywords, such as a name or a topic, not a sentence. Also returns what Ayo's memory holds on the topic; those entries are read-only, so `forget` does not take them.",
 		parameters: Type.Object({
-			query: Type.String({ minLength: 1, description: "One to three keywords." }),
+			query: Type.String({ minLength: 1, maxLength: 200, description: "One to three keywords." }),
 			limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: `Default ${DEFAULT_RECALL_LIMIT}.` })),
 		}),
 		replay: "safe",
@@ -61,7 +61,8 @@ export function memoryExtension(memory: Memory, ayoMemory: OtherMemory) {
 			const entries = memory.recall(query, limit);
 			const own = entries.length === 0 ? `Nothing in your memory matches "${query}".` : formatEntries(entries);
 			const fromAyo = await ayoMemory(query, limit, context.abortSignal);
-			return { content: textContent(`${own}\n\nAyo's memory:\n${fromAyo ?? "Not reachable now."}`) };
+			// Ayo's block is bounded and comes first, so the output limit can only cut Phoebe's own entries.
+			return { content: textContent(`Ayo's memory:\n${fromAyo ?? "Not reachable now."}\n\nYour memory:\n${own}`) };
 		},
 	});
 
