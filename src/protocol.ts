@@ -53,6 +53,7 @@ export function ayoExecuteCode(code: string, params: unknown): string {
  */
 export function ayoExecuteParts(shown: string): { params: string; code: string } {
 	const border = shown.indexOf("\n\n");
+	if (border === -1) return { params: "", code: shown };
 	return { params: shown.slice(0, border), code: shown.slice(border + 2) };
 }
 

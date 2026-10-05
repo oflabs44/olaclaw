@@ -13,18 +13,34 @@ const optionRow =
 	"flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[0.6rem] px-3 py-2 text-left text-[0.95rem] " +
 	"transition-colors hover:bg-sheet focus-visible:bg-sheet touch:min-h-12";
 
-const codeBlock = "rounded bg-sheet px-2.5 py-2 font-mono text-sm whitespace-pre-wrap [overflow-wrap:anywhere]";
+/**
+ * Text as numbered lines, never clipped or scrolled inside the block: all that Oladayo approves is on
+ * the page, and a long line that wraps still reads as one line.
+ */
+function NumberedLines({ label, text }: { label: string; text: string }) {
+	const lines = text.split("\n");
+	return (
+		<>
+			<p className="text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase">
+				{label} · {lines.length} {lines.length === 1 ? "line" : "lines"}
+			</p>
+			<div className="rounded bg-sheet px-2.5 py-2 font-mono text-sm">
+				{lines.map((line, index) => (
+					<div key={index} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-2">
+						<span className="text-right text-ink-faint select-none">{index + 1}</span>
+						<span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{line}</span>
+					</div>
+				))}
+			</div>
+		</>
+	);
+}
 
-/** The code is never clipped or scrolled inside the block: what Oladayo approves is all on the page. */
 function ApprovalCode({ params, code }: { params: string; code: string }) {
 	return (
 		<div className="mt-1 grid gap-1">
-			<p className="text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase">
-				Code · {code.split("\n").length} lines
-			</p>
-			<pre className={codeBlock}>{code}</pre>
-			<p className="text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase">Params</p>
-			<pre className={cn(codeBlock, "max-h-40 overflow-auto")}>{params}</pre>
+			<NumberedLines label="Code" text={code} />
+			<NumberedLines label="Params" text={params} />
 		</div>
 	);
 }
