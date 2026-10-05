@@ -53,12 +53,23 @@ export function LeftPane() {
 	);
 }
 
-/** The approvals: a sheet from the right on a wide screen and a bottom sheet on a phone, so the page keeps one sidebar. */
-export function ApprovalsPane() {
+/**
+ * The approvals: a sheet from the right on a wide screen and a bottom sheet on a phone, so the page
+ * keeps one sidebar. On a wide screen it opens inside `card`, the page's card, and leaves the chrome
+ * and the left pane free and usable.
+ */
+export function ApprovalsPane({ card }: { card: HTMLElement | null }) {
 	const panel = usePanel("right");
 	return (
-		<Sheet swipeDirection={panel.isPhone ? "down" : "right"} open={panel.isOpen} onOpenChange={panel.setOpen}>
+		<Sheet
+			swipeDirection={panel.isPhone ? "down" : "right"}
+			// Focus stays in the sheet, but a click on the left pane still works; it also closes the sheet.
+			modal={panel.isPhone ? true : "trap-focus"}
+			open={panel.isOpen}
+			onOpenChange={panel.setOpen}
+		>
 			<SheetContent
+				container={panel.isPhone ? undefined : card}
 				className={
 					panel.isPhone
 						? "px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]"

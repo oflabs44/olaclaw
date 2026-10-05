@@ -9,7 +9,7 @@ import {
 	useLoaderData,
 	useRouter,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { z } from "zod";
 import { Chrome } from "@/components/workspace/chrome";
 import { Omnibox } from "@/components/workspace/omnibox";
@@ -128,6 +128,8 @@ function RootDocument({ children }: { children: ReactNode }) {
  */
 function Workspace() {
 	useKeyboardViewport();
+	// The approvals sheet opens inside the card, so it needs the element.
+	const [card, setCard] = useState<HTMLElement | null>(null);
 	return (
 		<TooltipProvider>
 			<Toaster>
@@ -135,10 +137,13 @@ function Workspace() {
 					<Chrome />
 					<div className="flex min-h-0 min-w-0 bg-paper wide:mx-1.5 wide:gap-2.5 wide:rounded-t-card wide:px-2.5 wide:pt-2.5">
 						<LeftPane />
-						<main className="flex min-w-0 flex-1 flex-col bg-sheet max-wide:bg-paper wide:rounded-t-card wide:border wide:border-b-0 wide:border-line wide:shadow-float">
+						<main
+							ref={setCard}
+							className="flex min-w-0 flex-1 flex-col bg-sheet max-wide:bg-paper wide:relative wide:overflow-hidden wide:rounded-t-card wide:border wide:border-b-0 wide:border-line wide:shadow-float"
+						>
 							<Outlet />
 						</main>
-						<ApprovalsPane />
+						<ApprovalsPane card={card} />
 					</div>
 				</div>
 				<Omnibox />

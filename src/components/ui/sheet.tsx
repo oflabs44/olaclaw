@@ -16,25 +16,36 @@ function SheetClose({ ...props }: SheetPrimitive.Close.Props) {
 
 /**
  * A drawer from the left, a sheet from the right, or a bottom sheet within reach of a thumb. Paper, no chrome.
- * It follows the finger and closes on a swipe towards its edge.
+ * It follows the finger and closes on a swipe towards its edge. With a `container`, the sheet and its
+ * scrim stay inside that element, which must be positioned and clip its overflow.
  */
-function SheetContent({ className, children, ...props }: SheetPrimitive.Popup.Props) {
+function SheetContent({
+	className,
+	children,
+	container,
+	...props
+}: SheetPrimitive.Popup.Props & { container?: HTMLElement | null }) {
+	const position = container ? "absolute" : "fixed";
 	return (
-		<SheetPrimitive.Portal>
+		<SheetPrimitive.Portal container={container}>
 			<SheetPrimitive.Backdrop
 				data-slot="sheet-overlay"
-				className="fixed inset-0 z-50 bg-scrim opacity-[calc(1-var(--drawer-swipe-progress))] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0 data-swiping:duration-0"
+				className={cn(
+					position,
+					"inset-0 z-50 bg-scrim opacity-[calc(1-var(--drawer-swipe-progress))] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0 data-swiping:duration-0",
+				)}
 			/>
-			<SheetPrimitive.Viewport className="fixed inset-0 z-50">
+			<SheetPrimitive.Viewport className={cn(position, "inset-0 z-50")}>
 				<SheetPrimitive.Popup
 					data-slot="sheet-content"
 					className={cn(
-						"fixed flex touch-auto flex-col overscroll-contain bg-paper text-ink outline-none transition-transform",
+						position,
+						"flex touch-auto flex-col overscroll-contain bg-paper text-ink outline-none transition-transform",
 						"data-swiping:duration-0 data-swiping:select-none",
 						"data-[swipe-direction=left]:inset-y-0 data-[swipe-direction=left]:left-0 data-[swipe-direction=left]:w-[min(19rem,84vw)]",
 						"data-[swipe-direction=left]:overflow-y-auto data-[swipe-direction=left]:[transform:translateX(var(--drawer-swipe-movement-x))]",
 						"data-[swipe-direction=left]:data-starting-style:-translate-x-full data-[swipe-direction=left]:data-ending-style:-translate-x-full",
-						"data-[swipe-direction=right]:inset-y-0 data-[swipe-direction=right]:right-0 data-[swipe-direction=right]:w-[min(27rem,90vw)]",
+						"data-[swipe-direction=right]:inset-y-0 data-[swipe-direction=right]:right-0 data-[swipe-direction=right]:w-[min(27rem,90%)]",
 						"data-[swipe-direction=right]:overflow-y-auto data-[swipe-direction=right]:[transform:translateX(var(--drawer-swipe-movement-x))]",
 						"data-[swipe-direction=right]:data-starting-style:translate-x-full data-[swipe-direction=right]:data-ending-style:translate-x-full",
 						"data-[swipe-direction=down]:inset-x-0 data-[swipe-direction=down]:bottom-0 data-[swipe-direction=down]:h-[min(82dvh,40rem)] data-[swipe-direction=down]:rounded-t-[16px]",
