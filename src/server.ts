@@ -7,11 +7,13 @@ export { PiAgent } from "./agent";
 export default {
 	fetch(request: Request) {
 		const url = new URL(request.url);
+		const isUpgrade = request.headers.has("Upgrade");
 		const isSocketUpgrade =
 			url.pathname === `/${SOCKET_PATH}` &&
 			request.headers.get("Upgrade")?.toLowerCase() === "websocket";
 		// Ayo's OAuth server redirects the browser here. The object checks the `state` it issued itself.
-		if (url.pathname === `/${AYO_CALLBACK_PATH}` && request.method === "GET") {
+		// Never an upgrade: the object accepts a socket on any path, and this path skips the origin check below.
+		if (url.pathname === `/${AYO_CALLBACK_PATH}` && request.method === "GET" && !isUpgrade) {
 			return exports.PiAgent.getByName(AGENT_NAME).fetch(request);
 		}
 		if (!isSocketUpgrade) return handler.fetch(request);
