@@ -1,53 +1,109 @@
 import { ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
-import type { FormEvent, ReactNode } from "react";
+import { type CSSProperties, type FormEvent, type ReactNode, Suspense, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ayoExecuteParts } from "@/protocol";
 import type { Approval } from "@/workspace-data";
+import { type HighlightedToken, highlightLines } from "./code-highlighter";
 
 export type ApprovalQuestion = Pick<Approval, "question" | "detail" | "code" | "options">;
 
 const optionRow =
-	"flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[0.6rem] px-3 py-2 text-left text-[0.95rem] " +
-	"transition-colors hover:bg-sheet focus-visible:bg-sheet touch:min-h-12";
+	"flex min-h-11 w-full cursor-pointer items-center gap-3 rounded px-3 py-2 text-left text-[0.95rem] " +
+	"transition-colors touch:min-h-12";
 
 /**
  * Text as numbered lines, never clipped or scrolled inside the block: all that Oladayo approves is on
- * the page, and a long line that wraps still reads as one line.
+ * the page, and a long line that wraps still reads as one line. The lines come from the text itself;
+ * tokens only add colour.
  */
-function NumberedLines({ label, text }: { label: string; text: string }) {
+function NumberedLines({ lines, tokens }: { lines: readonly string[]; tokens?: HighlightedToken[][] | null }) {
+	return (
+		<div className="px-2.5 py-2 font-mono text-sm">
+			{lines.map((line, index) => (
+				<div key={index} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-2">
+					<span className="text-right text-ink-faint select-none">{index + 1}</span>
+					<span className="whitespace-pre-wrap [tab-size:2] [overflow-wrap:anywhere]">
+						{tokens?.[index]?.map((token, tokenIndex) => (
+							<span
+								key={tokenIndex}
+								// The same switch as Streamdown's code blocks: one variable per theme, ink when there is none.
+								className="text-[color:var(--shiki,inherit)] dark:text-[color:var(--shiki-dark,inherit)]"
+								style={{ "--shiki": token.color, "--shiki-dark": token.darkColor } as CSSProperties}
+							>
+								{token.content}
+							</span>
+						)) ?? line}
+					</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function HighlightedLines({ text, lines, language }: { text: string; lines: readonly string[]; language: string }) {
+	return <NumberedLines lines={lines} tokens={use(highlightLines(text, language))} />;
+}
+
+function CodePanel({ name, text, language }: { name: string; text: string; language: string }) {
 	const lines = text.split("\n");
 	return (
-		<>
-			<p className="text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase">
-				{label} · {lines.length} {lines.length === 1 ? "line" : "lines"}
+		<div className="rounded border border-line bg-paper">
+			<p className="border-b border-line px-2.5 py-1.5 text-[0.8rem] text-ink-soft">
+				{name}, {lines.length} {lines.length === 1 ? "line" : "lines"}
 			</p>
-			<div className="rounded bg-sheet px-2.5 py-2 font-mono text-sm">
-				{lines.map((line, index) => (
-					<div key={index} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-2">
-						<span className="text-right text-ink-faint select-none">{index + 1}</span>
-						<span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{line}</span>
-					</div>
-				))}
-			</div>
-		</>
+			{/* The plain text shows at once; the colour arrives when the grammar has loaded. */}
+			<Suspense fallback={<NumberedLines lines={lines} />}>
+				<HighlightedLines text={text} lines={lines} language={language} />
+			</Suspense>
+		</div>
 	);
 }
 
 function ApprovalCode({ params, code }: { params: string; code: string }) {
 	return (
-		<div className="mt-1 grid gap-1">
-			<NumberedLines label="Code" text={code} />
-			<NumberedLines label="Params" text={params} />
+		<div className="grid gap-2">
+			<CodePanel name="JavaScript" text={code} language="javascript" />
+			{params === "none" ? (
+				<p className="text-[0.9rem] text-ink-soft">No params</p>
+			) : (
+				<CodePanel name="Params" text={params} language="json" />
+			)}
+		</div>
+	);
+}
+
+/** The card of a question from Phoebe: the question and what belongs to it, without the answers. */
+export function ApprovalCard({
+	approval,
+	className,
+	children,
+}: {
+	approval: Pick<Approval, "question" | "detail">;
+	className?: string;
+	children?: ReactNode;
+}) {
+	return (
+		<div className={cn("grid gap-3 rounded-card border border-float-line bg-float px-4 py-3.5 shadow-float", className)}>
+			<div className="grid gap-1">
+				<p className="flex items-center gap-1.5 text-[0.82rem] text-ink-soft">
+					<span className="size-1.5 shrink-0 rounded-full bg-star" aria-hidden="true" />
+					Phoebe asks
+				</p>
+				<p className="text-[1.02rem] leading-snug font-semibold">{approval.question}</p>
+				{approval.detail && <p className="text-[0.9rem] leading-snug text-ink-soft">{approval.detail}</p>}
+			</div>
+			{children}
 		</div>
 	);
 }
 
 /**
- * A question from Phoebe, with the code it is about when there is any. The options stand one per line, the recommended one first and marked;
- * the last line takes an answer in Oladayo's own words.
+ * A question from Phoebe with its answers. A question has one option per line, the recommended one
+ * first and marked. A code approval shows the code and the params, then its two options as buttons.
+ * The last line takes an answer in Oladayo's own words.
  */
 export function ApprovalBlock({
 	approval,
@@ -71,60 +127,69 @@ export function ApprovalBlock({
 	}
 
 	return (
-		<div
-			className={cn(
-				"grid gap-3 rounded-[0.9rem] border border-star/30 bg-star-wash px-4 py-3.5 shadow-float",
-				className,
-			)}
-		>
-			<div className="grid gap-1">
-				<p className="text-[0.72rem] font-semibold tracking-wide text-star uppercase">Phoebe asks</p>
-				<p className="text-[1.02rem] leading-snug font-semibold">{approval.question}</p>
-				{approval.detail && <p className="text-[0.9rem] leading-snug text-ink-soft">{approval.detail}</p>}
-				{approval.code && <ApprovalCode {...ayoExecuteParts(approval.code)} />}
-				{children}
-			</div>
-			<ul className="grid gap-1 border-t border-star/20 pt-2.5" aria-label="Options">
-				{approval.options.map((option, index) => (
-					<li key={option}>
-						<button
-							type="button"
-							className={cn(optionRow, index === 0 && "bg-sheet font-medium shadow-sm")}
-							onClick={() => onDecide(option)}
-						>
-							<span
-								className={cn(
-									"flex size-6 shrink-0 items-center justify-center rounded-full text-[0.75rem] font-semibold",
-									index === 0 ? "bg-star text-paper" : "bg-wash text-ink-soft",
-								)}
-								aria-hidden="true"
+		<ApprovalCard approval={approval} className={className}>
+			{children}
+			{approval.code ? (
+				<>
+					<ApprovalCode {...ayoExecuteParts(approval.code)} />
+					<div className="grid grid-cols-2 gap-2">
+						{approval.options.map((option, index) => (
+							<Button
+								key={option}
+								variant={index === 0 ? "respond" : "quiet"}
+								className="h-10"
+								onClick={() => onDecide(option)}
 							>
-								{index + 1}
-							</span>
-							<span className="min-w-0 flex-1">
 								{option}
-								{/* The model puts the option it recommends first. A code approval has fixed options. */}
-								{index === 0 && !approval.code && <span className="block text-[0.72rem] font-normal text-star">Recommended</span>}
-							</span>
-						</button>
-					</li>
-				))}
-				<li>
-					<form onSubmit={submitOwnAnswer} className="flex items-center gap-2 px-1 pt-1">
-						<Input
-							name="answer"
-							placeholder="Or answer in your own words"
-							aria-label="Your own answer"
-							autoComplete="off"
-							maxLength={500}
-							className="h-10 rounded-[0.6rem] bg-sheet touch:h-11"
-						/>
-						<Button type="submit" variant="respond" icon aria-label="Send your answer" className="size-10 touch:size-11">
-							<HugeiconsIcon icon={ArrowUp01Icon} size={18} strokeWidth={2} />
-						</Button>
-					</form>
-				</li>
-			</ul>
-		</div>
+							</Button>
+						))}
+					</div>
+				</>
+			) : (
+				<ul className="grid gap-1.5" aria-label="Options">
+					{approval.options.map((option, index) => (
+						<li key={option}>
+							<button
+								type="button"
+								className={cn(
+									optionRow,
+									index === 0
+										? "bg-wash-strong font-medium hover:bg-line-strong focus-visible:bg-line-strong"
+										: "border border-line hover:bg-wash focus-visible:bg-wash",
+								)}
+								onClick={() => onDecide(option)}
+							>
+								<span className="min-w-0 flex-1">{option}</span>
+								{/* The model puts the option it recommends first. */}
+								{index === 0 && (
+									<span className="shrink-0 rounded-full bg-star-wash px-2 py-0.5 text-[0.75rem] font-normal text-ink-soft">
+										Recommended
+									</span>
+								)}
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
+			<form onSubmit={submitOwnAnswer} className="relative">
+				<Input
+					name="answer"
+					placeholder={approval.code ? "Or tell Phoebe what to change" : "Or answer in your own words"}
+					aria-label="Your own answer"
+					autoComplete="off"
+					maxLength={500}
+					className="h-10 pr-11 touch:pr-12"
+				/>
+				<Button
+					type="submit"
+					variant="quiet"
+					icon
+					aria-label="Send your answer"
+					className="absolute top-1 right-1 touch:top-0 touch:right-0"
+				>
+					<HugeiconsIcon icon={ArrowUp01Icon} size={18} strokeWidth={2} />
+				</Button>
+			</form>
+		</ApprovalCard>
 	);
 }

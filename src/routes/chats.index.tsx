@@ -28,7 +28,7 @@ function ChatsPage() {
 				</EmptyHeader>
 				<EmptyContent className="items-stretch gap-0.5 text-left">
 					{chatTree(chats).map((row) => (
-						<ChatLink key={row.chat.id} row={row} indent={0.7} />
+						<ChatLink key={row.chat.id} row={row} />
 					))}
 				</EmptyContent>
 			</Empty>

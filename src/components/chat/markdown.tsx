@@ -1,5 +1,5 @@
 import { Streamdown } from "streamdown";
-import { codeHighlighter } from "./code-highlighter";
+import { codeHighlighter, THEMES } from "./code-highlighter";
 
 // A bare URL has no break opportunities, so a long one would break mid-word. Allow a break after
 // each separator and before each dot instead; the text stays the same for copy and screen readers.
@@ -46,7 +46,7 @@ export function Markdown({ text, isStreaming }: { text: string; isStreaming: boo
 			mode={isStreaming ? "streaming" : "static"}
 			isAnimating={isStreaming}
 			plugins={{ code: codeHighlighter }}
-			shikiTheme={["github-light", "github-dark"]}
+			shikiTheme={[THEMES.light, THEMES.dark]}
 			controls={{ code: { download: false } }}
 			components={elements}
 			className="text-lg max-wide:text-[17px] max-wide:leading-[1.55] [&_:not(pre)>code]:rounded-[5px] [&_:not(pre)>code]:bg-wash [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.9em]"

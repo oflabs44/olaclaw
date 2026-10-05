@@ -8,7 +8,8 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { Link, useLoaderData, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import type { ReactNode } from "react";
-import { ApprovalBlock } from "@/components/chat/approval-block";
+import { ApprovalBlock, ApprovalCard } from "@/components/chat/approval-block";
+import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
@@ -109,13 +110,8 @@ function NeedsYouSection() {
 	if (approvals.length === 0) return <SectionEmpty>Nothing needs you</SectionEmpty>;
 	return (
 		<div className="grid gap-2 px-0.5 pb-1.5">
-			{approvals.map((approval) => (
-				<ApprovalBlock
-					key={approval.id}
-					approval={approval}
-					onDecide={(answer) => decide(approval.id, answer)}
-					className="px-3 py-2.5 text-[0.9rem]"
-				>
+			{approvals.map((approval) => {
+				const chatLink = (
 					<Link
 						to="/chats/$chatId"
 						params={{ chatId: approval.chatId }}
@@ -123,8 +119,34 @@ function NeedsYouSection() {
 					>
 						{chats.find((chat) => chat.id === approval.chatId)?.title ?? "Chat"}
 					</Link>
-				</ApprovalBlock>
-			))}
+				);
+				const className = "px-3 py-2.5 text-[0.9rem]";
+				// This pane is too narrow to read code, and Oladayo must read it before he answers.
+				if (approval.code) {
+					return (
+						<ApprovalCard key={approval.id} approval={approval} className={className}>
+							{chatLink}
+							<Button
+								variant="quiet"
+								nativeButton={false}
+								render={<Link to="/chats/$chatId" params={{ chatId: approval.chatId }} />}
+							>
+								Review in chat
+							</Button>
+						</ApprovalCard>
+					);
+				}
+				return (
+					<ApprovalBlock
+						key={approval.id}
+						approval={approval}
+						onDecide={(answer) => decide(approval.id, answer)}
+						className={className}
+					>
+						{chatLink}
+					</ApprovalBlock>
+				);
+			})}
 		</div>
 	);
 }
