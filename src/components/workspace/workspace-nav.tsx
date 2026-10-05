@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { type ConnectionStatus, usePiSession } from "@/pi-session";
 import type { WorkspaceSearch } from "@/routes/__root";
-import { createChat } from "@/workspace-data";
+import { connectAyo, createChat } from "@/workspace-data";
 import { type ChatTreeRow, chatTree } from "./chat-tree";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -95,6 +95,44 @@ export function ChatLink({
 	);
 }
 
+/** Whether Phoebe can reach Ayo, with the action that starts Ayo's login when she cannot. */
+function AyoConnection() {
+	const isConnected = useLoaderData({ from: "__root__", select: (data) => data.isAyoConnected });
+	const router = useRouter();
+
+	async function connect() {
+		try {
+			const loginUrl = await connectAyo();
+			if (loginUrl !== null) {
+				// Ayo's login and consent pages; Ayo sends the browser back to the app afterwards.
+				window.location.assign(loginUrl);
+				return;
+			}
+		} catch (error) {
+			console.error("Cannot connect Ayo", error);
+			toast.add({ title: "Could not connect Ayo", description: "Try again in a moment." });
+		}
+		await router.invalidate();
+	}
+
+	return (
+		<div className="flex items-center justify-between px-2">
+			<p className="flex items-center gap-2 text-[0.85rem] text-ink-soft" role="status">
+				<span
+					className={cn("size-[0.45rem] rounded-full", isConnected ? "bg-accent" : "bg-ink-faint")}
+					aria-hidden="true"
+				/>
+				{isConnected ? "Ayo connected" : "Ayo not connected"}
+			</p>
+			{!isConnected && (
+				<Button variant="quiet" className="h-7 px-2.5 text-[12.5px] touch:h-10" onClick={connect}>
+					Connect
+				</Button>
+			)}
+		</div>
+	);
+}
+
 /** The left pane: where you are. The same content fills the phone drawer. */
 export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
@@ -157,16 +195,19 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
 				))}
 			</div>
-			<div className="mt-auto flex items-center justify-between px-2">
-				<p className="flex items-center gap-2 text-[0.85rem] text-ink-soft" role="status">
-					{status && (
-						<>
-							<span className={cn("size-[0.45rem] rounded-full", STATUS_DOTS[status])} aria-hidden="true" />
-							{STATUS_LABELS[status]}
-						</>
-					)}
-				</p>
-				<ThemeToggle />
+			<div className="mt-auto grid gap-2">
+				<AyoConnection />
+				<div className="flex items-center justify-between px-2">
+					<p className="flex items-center gap-2 text-[0.85rem] text-ink-soft" role="status">
+						{status && (
+							<>
+								<span className={cn("size-[0.45rem] rounded-full", STATUS_DOTS[status])} aria-hidden="true" />
+								{STATUS_LABELS[status]}
+							</>
+						)}
+					</p>
+					<ThemeToggle />
+				</div>
 			</div>
 		</nav>
 	);

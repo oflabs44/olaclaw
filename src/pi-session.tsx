@@ -4,7 +4,7 @@ import { createStore, useSelector } from "@tanstack/react-store";
 import { useAgent } from "agents/react";
 import type { AgentEvent } from "@earendil-works/pi-durable";
 import { createContext, type ReactNode, use, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ASK_TOOL, type ClientMessage, type ServerMessage, SOCKET_PATH } from "./protocol";
+import { ASK_TOOL, AYO_EXECUTE_TOOL, type ClientMessage, type ServerMessage, SOCKET_PATH } from "./protocol";
 import { EMPTY_VIEW, type PiSessionView, reduceEvents } from "./view";
 
 export type ConnectionStatus = "connecting" | "open" | "closed";
@@ -50,7 +50,7 @@ type PiCommands = {
 	/** Idle: starts a run. Busy: Pi queues the text as a follow-up. False when the socket is not open. */
 	readonly submit: (text: string) => boolean;
 	readonly abort: () => boolean;
-	/** Answers an `ask` tool call of this chat. */
+	/** Answers an `ask` or `ayo_execute` tool call of this chat. */
 	readonly decide: (callId: string, answer: string) => boolean;
 };
 
@@ -165,12 +165,14 @@ export function PiSessionProvider({
 		const isFirstRun = messages.filter((message) => message.role === "user").length === 1;
 		const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
 		// "Needs you" lists the open questions, so it reloads when `ask` starts and when it ends:
-		// answered here, answered from the Now panel, or withdrawn by a Stop.
-		const askChanged = events.some(
-			(agentEvent) =>
-				(agentEvent.type === "tool_execution_start" || agentEvent.type === "tool_execution_end") &&
-				agentEvent.toolName === ASK_TOOL,
-		);
+		// answered here, answered from the Now panel, or withdrawn by a Stop. An approved `ayo_execute`
+		// call runs on, so its update counts too.
+		const askChanged = events.some((agentEvent) => {
+			if (agentEvent.type === "tool_execution_start" || agentEvent.type === "tool_execution_end") {
+				return agentEvent.toolName === ASK_TOOL || agentEvent.toolName === AYO_EXECUTE_TOOL;
+			}
+			return agentEvent.type === "tool_execution_update" && agentEvent.toolName === AYO_EXECUTE_TOOL;
+		});
 		if (askChanged || (!hasSnapshot && isFirstRun && ((wasEmpty && messages.length > 0) || runEnded))) {
 			void router.invalidate();
 		}

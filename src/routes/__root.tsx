@@ -23,7 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useKeyboardViewport } from "@/lib/use-keyboard-viewport";
 import appCss from "@/styles.css?url";
 import { getThemePreference, SYSTEM_THEME_SCRIPT, type ThemePreference } from "@/theme";
-import { getChats, getNowPanel } from "@/workspace-data";
+import { getAyoConnection, getChats, getNowPanel } from "@/workspace-data";
 
 declare module "@tanstack/react-router" {
 	interface StaticDataRouteOption {
@@ -60,8 +60,14 @@ export const Route = createRootRoute({
 	validateSearch: workspaceSearch,
 	search: { middlewares: [retainSearchParams(["left", "right"])] },
 	loader: async () => {
-		const [theme, chats, now] = await Promise.all([getThemePreference(), getChats(), getNowPanel()]);
-		return { theme, chats, now };
+		const [theme, chats, now, isAyoConnected] = await Promise.all([
+			getThemePreference(),
+			getChats(),
+			getNowPanel(),
+			// A status dot must not break the app when Ayo or the MCP client fails.
+			getAyoConnection().catch(() => false),
+		]);
+		return { theme, chats, now, isAyoConnected };
 	},
 	// This tab invalidates after its own chat changes. After 30 s the next navigation reloads, which
 	// picks up chats made on other devices.

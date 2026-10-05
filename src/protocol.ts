@@ -21,8 +21,28 @@ export type DelegateDetails = {
 	usage?: UsageState;
 };
 
+/** The tool whose running call the chat renders as code to approve. */
+export const AYO_EXECUTE_TOOL = "ayo_execute";
+
+/** The approval every `ayo_execute` call opens. Only the first option runs the code. */
+export const AYO_EXECUTE_APPROVAL = {
+	question: "Run this code in Ayo?",
+	options: ["Run it", "Do not run"],
+} as const;
+
+/** The code and params Oladayo reads before he approves an `ayo_execute` call. */
+export function ayoExecuteCode(code: string, params: unknown): string {
+	return params === undefined ? code : `${code}\n\n// params\n${JSON.stringify(params, null, 2)}`;
+}
+
+/** What an `ayo_execute` call reports once Oladayo approved it; the chat then stops asking. */
+export type AyoExecuteDetails = { approved: true };
+
 /** URL path of the chat socket. The Worker forwards upgrades on it to the user's object. */
 export const SOCKET_PATH = "agent-socket";
+
+/** URL path Ayo's OAuth server sends the browser back to. The Worker forwards it to the user's object. */
+export const AYO_CALLBACK_PATH = "ayo-callback";
 
 /** The one agent object, for the single user. */
 export const AGENT_NAME = "oladayo";
@@ -31,7 +51,7 @@ export const AGENT_NAME = "oladayo";
 export type ClientMessage =
 	| { readonly type: "submit"; readonly text: string }
 	| { readonly type: "abort" }
-	/** The answer to an `ask` tool call of the connection's session. */
+	/** The answer to an `ask` or `ayo_execute` tool call of the connection's session. */
 	| { readonly type: "decide"; readonly callId: string; readonly answer: string };
 
 /** Server → client. */

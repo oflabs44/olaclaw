@@ -1,9 +1,11 @@
 export type ApprovalRecord = {
-	/** The id of the `ask` tool call that waits for the decision. */
+	/** The id of the `ask` or `ayo_execute` tool call that waits for the decision. */
 	readonly callId: string;
 	readonly sessionId: string;
 	readonly question: string;
 	readonly detail: string | null;
+	/** Code the answer decides on, shown as code. */
+	readonly code: string | null;
 	readonly options: readonly string[];
 	readonly decision: string | null;
 };
@@ -13,13 +15,14 @@ type ApprovalRow = {
 	session_id: string;
 	question: string;
 	detail: string | null;
+	code: string | null;
 	options: string;
 	decision: string | null;
 };
 
 const MAX_ANSWER_LENGTH = 500;
 
-const COLUMNS = "call_id, session_id, question, detail, options, decision";
+const COLUMNS = "call_id, session_id, question, detail, code, options, decision";
 
 function toRecord(row: ApprovalRow): ApprovalRecord {
 	return {
@@ -27,6 +30,7 @@ function toRecord(row: ApprovalRow): ApprovalRecord {
 		sessionId: row.session_id,
 		question: row.question,
 		detail: row.detail,
+		code: row.code,
 		options: JSON.parse(row.options),
 		decision: row.decision,
 	};
@@ -34,7 +38,7 @@ function toRecord(row: ApprovalRow): ApprovalRecord {
 
 /**
  * Questions Phoebe waits on. The row is the truth; the waiters are only this isolate's tool calls.
- * A restart drops the waiters, Pi reruns the `ask` call, and the rerun reads the row again.
+ * A restart drops the waiters, Pi reruns the waiting call, and the rerun reads the row again.
  */
 export class Approvals {
 	readonly #sql: SqlStorage;
@@ -45,6 +49,10 @@ export class Approvals {
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS approval (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, call_id TEXT NOT NULL UNIQUE, question TEXT NOT NULL, detail TEXT NULL, options TEXT NOT NULL, decision TEXT NULL, created_at INTEGER NOT NULL, decided_at INTEGER NULL)",
 		);
+		// The table is older than this column.
+		if (!sql.exec("SELECT * FROM approval LIMIT 0").columnNames.includes("code")) {
+			sql.exec("ALTER TABLE approval ADD COLUMN code TEXT NULL");
+		}
 	}
 
 	#find(callId: string): ApprovalRecord | undefined {
@@ -62,6 +70,7 @@ export class Approvals {
 		question: string,
 		options: readonly string[],
 		detail: string | undefined,
+		code?: string,
 	): void {
 		const existing = this.#find(callId);
 		if (existing) {
@@ -70,14 +79,17 @@ export class Approvals {
 			if (existing.question !== question || JSON.stringify(existing.options) !== JSON.stringify(options)) {
 				throw new Error(`Call id ${callId} already asked a different question`);
 			}
+			// The question of a code approval is fixed, so the code is what tells two calls apart.
+			if (existing.code !== (code ?? null)) throw new Error(`Call id ${callId} already asked about other code`);
 			return;
 		}
 		this.#sql.exec(
-			"INSERT INTO approval (session_id, call_id, question, detail, options, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+			"INSERT INTO approval (session_id, call_id, question, detail, code, options, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			session,
 			callId,
 			question,
 			detail ?? null,
+			code ?? null,
 			JSON.stringify(options),
 			Date.now(),
 		);

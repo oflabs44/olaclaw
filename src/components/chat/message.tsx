@@ -4,7 +4,7 @@ import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import { type ReactNode, useState } from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import { ASK_TOOL, DELEGATE_TOOL } from "@/protocol";
+import { ASK_TOOL, AYO_EXECUTE_APPROVAL, AYO_EXECUTE_TOOL, ayoExecuteCode, DELEGATE_TOOL } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -185,6 +185,13 @@ function askedQuestion(call: ToolCall): ApprovalQuestion | undefined {
 		detail: typeof detail === "string" ? detail : undefined,
 		options: options.filter((option) => typeof option === "string"),
 	};
+}
+
+/** The approval of an `ayo_execute` call. Undefined when the arguments are not what the tool takes. */
+function ayoExecuteApproval(call: ToolCall): ApprovalQuestion | undefined {
+	const args = call.arguments;
+	if (typeof args !== "object" || args === null || !("code" in args) || typeof args.code !== "string") return undefined;
+	return { ...AYO_EXECUTE_APPROVAL, code: ayoExecuteCode(args.code, "params" in args ? args.params : undefined) };
 }
 
 function AskBlock({ call, approval }: { call: ToolCall; approval: ApprovalQuestion }) {
@@ -418,7 +425,12 @@ export function AssistantMessage({
 				}
 				// `ask` waits for a choice while it runs. Once answered it shows as any other tool call.
 				const isWaiting = !isReadOnly && !toolResults.has(part.id) && runningTools.has(part.id);
-				const approval = part.name === ASK_TOOL && isWaiting ? askedQuestion(part) : undefined;
+				let approval: ApprovalQuestion | undefined;
+				if (isWaiting && part.name === ASK_TOOL) approval = askedQuestion(part);
+				// `ayo_execute` reports details once Oladayo approved it; from then on it only runs.
+				if (isWaiting && part.name === AYO_EXECUTE_TOOL && runningTools.get(part.id)?.details === undefined) {
+					approval = ayoExecuteApproval(part);
+				}
 				if (!approval) {
 					flushDelegateCalls();
 					steps.push(part);

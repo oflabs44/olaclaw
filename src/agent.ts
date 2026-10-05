@@ -5,6 +5,7 @@ import { ANTHROPIC_MODELS } from "@earendil-works/pi-ai/providers/anthropic.mode
 import { createRegistry, Harness, type ModelRef } from "@earendil-works/pi-durable";
 import { PiHarness } from "agents/harness/pi";
 import { Lifecycle } from "agents/lifecycle";
+import { MCPClientManager } from "agents/mcp/client";
 import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
 import { type ApprovalRecord, Approvals } from "./approvals";
@@ -12,9 +13,11 @@ import { type ChatSummary, Chats } from "./chats";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
+import { AYO_CALLBACK_PATH } from "./protocol";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
 import { askExtension } from "./tools/ask";
+import { ayoExtension, connectAyo, isAyoConnected } from "./tools/ayo";
 import { delegateExtension } from "./tools/delegate";
 import { memoryExtension } from "./tools/memory";
 
@@ -37,6 +40,8 @@ export class PiAgent extends DurableObject<Env> {
 	readonly registry = createRegistry();
 	readonly memory = new Memory(this.ctx.storage.sql);
 	readonly approvals = new Approvals(this.ctx.storage.sql);
+	// The MCP client for Ayo. It keeps the OAuth token in this object's storage and restores the connection after a wake.
+	readonly mcp = new MCPClientManager("olaclaw", "1.0.0");
 
 	readonly harness = new PiHarness({
 		harness: ({ storage, context }) => {
@@ -58,7 +63,9 @@ export class PiAgent extends DurableObject<Env> {
 			this.registry.install(memory);
 			this.registry.install(toolsExtension(this.env.AI, this.chats));
 			this.registry.install(ask);
-			this.registry.install(delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask]));
+			const ayo = ayoExtension(this.mcp, this.approvals);
+			this.registry.install(ayo);
+			this.registry.install(delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask, ayo]));
 			this.registry.install(clock);
 			return Harness.open(storage, { models, registry: this.registry }, context);
 		},
@@ -76,11 +83,17 @@ export class PiAgent extends DurableObject<Env> {
 	);
 	readonly webSockets = new WebSockets(this.sessionSockets.options());
 
-	readonly lifecycle = Lifecycle.install(this).use(this.webSockets).use(this.harness);
+	// The MCP client answers Ayo's OAuth callback itself and then redirects to the app's start page.
+	readonly lifecycle = Lifecycle.install(this).use(this.mcp).use(this.webSockets).use(this.harness);
 
 	// Event watches live in memory; sockets that outlived the last isolate need new ones.
 	async onStart(): Promise<void> {
 		await this.sessionSockets.reattach();
+	}
+
+	// Only a callback request that the MCP client did not accept gets here.
+	onRequest(): Response {
+		return new Response("Not found", { status: 404 });
 	}
 
 	listChats(): ChatSummary[] {
@@ -138,5 +151,17 @@ export class PiAgent extends DurableObject<Env> {
 
 	decideApproval(callId: string, answer: string): void {
 		this.approvals.decide(callId, answer);
+	}
+
+	// An RPC call does not pass through `fetch`, so nothing has started the MCP client yet on a cold object.
+	async isAyoConnected(): Promise<boolean> {
+		await this.lifecycle.start();
+		return isAyoConnected(this.mcp);
+	}
+
+	/** Returns the URL of Ayo's login page when Ayo asks for one; `origin` is the app's own. */
+	async connectAyo(origin: string): Promise<string | null> {
+		await this.lifecycle.start();
+		return connectAyo(this.mcp, `${origin}/${AYO_CALLBACK_PATH}`);
 	}
 }

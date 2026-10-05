@@ -1,6 +1,6 @@
 import { exports } from "cloudflare:workers";
 import handler from "@tanstack/react-start/server-entry";
-import { AGENT_NAME, SOCKET_PATH } from "./protocol";
+import { AGENT_NAME, AYO_CALLBACK_PATH, SOCKET_PATH } from "./protocol";
 
 export { PiAgent } from "./agent";
 
@@ -10,6 +10,10 @@ export default {
 		const isSocketUpgrade =
 			url.pathname === `/${SOCKET_PATH}` &&
 			request.headers.get("Upgrade")?.toLowerCase() === "websocket";
+		// Ayo's OAuth server redirects the browser here. The object checks the `state` it issued itself.
+		if (url.pathname === `/${AYO_CALLBACK_PATH}` && request.method === "GET") {
+			return exports.PiAgent.getByName(AGENT_NAME).fetch(request);
+		}
 		if (!isSocketUpgrade) return handler.fetch(request);
 
 		// Browsers can send cookies on cross-site WebSocket handshakes (no CORS applies), so

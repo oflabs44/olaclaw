@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Approval } from "@/workspace-data";
 
-export type ApprovalQuestion = Pick<Approval, "question" | "detail" | "options">;
+export type ApprovalQuestion = Pick<Approval, "question" | "detail" | "code" | "options">;
 
 const optionRow =
 	"flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[0.6rem] px-3 py-2 text-left text-[0.95rem] " +
 	"transition-colors hover:bg-sheet focus-visible:bg-sheet touch:min-h-12";
 
 /**
- * A question from Phoebe. The options stand one per line, the recommended one first and marked;
+ * A question from Phoebe, with the code it is about when there is any. The options stand one per line, the recommended one first and marked;
  * the last line takes an answer in Oladayo's own words.
  */
 export function ApprovalBlock({
@@ -48,6 +48,11 @@ export function ApprovalBlock({
 				<p className="text-[0.72rem] font-semibold tracking-wide text-star uppercase">Phoebe asks</p>
 				<p className="text-[1.02rem] leading-snug font-semibold">{approval.question}</p>
 				{approval.detail && <p className="text-[0.9rem] leading-snug text-ink-soft">{approval.detail}</p>}
+				{approval.code && (
+					<pre className="mt-1 max-h-80 overflow-auto rounded bg-sheet px-2.5 py-2 font-mono text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">
+						{approval.code}
+					</pre>
+				)}
 				{children}
 			</div>
 			<ul className="grid gap-1 border-t border-star/20 pt-2.5" aria-label="Options">
@@ -69,8 +74,8 @@ export function ApprovalBlock({
 							</span>
 							<span className="min-w-0 flex-1">
 								{option}
-								{/* The model puts the option it recommends first. */}
-								{index === 0 && <span className="block text-[0.72rem] font-normal text-star">Recommended</span>}
+								{/* The model puts the option it recommends first. A code approval has fixed options. */}
+								{index === 0 && !approval.code && <span className="block text-[0.72rem] font-normal text-star">Recommended</span>}
 							</span>
 						</button>
 					</li>
