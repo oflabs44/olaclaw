@@ -17,6 +17,8 @@ const RESTORE_TIMEOUT_MILLISECONDS = 5_000;
 
 // Tab, newline, and printable ASCII. Anything else can look on screen like something it is not.
 const PLAIN_CODE = /^[\t\n\x20-\x7E]*$/;
+// Three empty lines in a row, or a long run of spaces: room to push code out of sight.
+const PADDING = /(\n[\t ]*){4}|[\t ]{80}/;
 
 const NOT_CONNECTED = "Ayo is not connected. Ask Oladayo to connect Ayo in the app, then try again.";
 
@@ -207,9 +209,9 @@ function ayoExecuteTool(mcp: AyoClient, approvals: Pick<Approvals, "open" | "wai
 			// Before the question, so Oladayo does not approve code that cannot run.
 			if (!(await isAyoConnected(mcp))) return errorResult(NOT_CONNECTED);
 			// Oladayo approves what he sees, so the code must read on screen exactly as it runs.
-			if (!PLAIN_CODE.test(args.code)) {
+			if (!PLAIN_CODE.test(args.code) || PADDING.test(args.code)) {
 				return errorResult(
-					"Refused: the code must be printable ASCII with tabs and newlines only. Pass other text through params, or write it as \\u escapes.",
+					"Refused: the code must be printable ASCII with tabs and newlines only, without runs of empty lines or spaces. Pass other text through params, or write it as \\u escapes.",
 				);
 			}
 			const shown = ayoExecuteCode(args.code, args.params);

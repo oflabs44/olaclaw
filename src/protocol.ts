@@ -31,9 +31,9 @@ export const AYO_EXECUTE_APPROVAL = {
 } as const;
 
 /**
- * The params and code Oladayo reads before he approves an `ayo_execute` call. The params come first and
- * every character outside printable ASCII shows as an escape, so nothing in them or in the code can
- * pass for something else on screen. The tool refuses code that is not printable ASCII.
+ * The params and code Oladayo reads before he approves an `ayo_execute` call, as one text. Every
+ * character of the params outside printable ASCII shows as an escape, and the tool refuses code that
+ * is not printable ASCII, so nothing can pass for something else on screen.
  */
 export function ayoExecuteCode(code: string, params: unknown): string {
 	const shownParams =
@@ -43,7 +43,17 @@ export function ayoExecuteCode(code: string, params: unknown): string {
 					/[^\n\x20-\x7E]/g,
 					(character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
 				);
-	return `// params: ${shownParams}\n\n// code:\n${code}`;
+	return `${shownParams}\n\n${code}`;
+}
+
+/**
+ * The two parts of `ayoExecuteCode`'s text. Printed JSON has no empty line, so the first one is the
+ * border, whatever the code contains. The chat shows the parts apart: neither can push the other out
+ * of sight or pass for it.
+ */
+export function ayoExecuteParts(shown: string): { params: string; code: string } {
+	const border = shown.indexOf("\n\n");
+	return { params: shown.slice(0, border), code: shown.slice(border + 2) };
 }
 
 /** What an `ayo_execute` call reports once Oladayo approved it; the chat then stops asking. */

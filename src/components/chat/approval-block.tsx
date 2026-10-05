@@ -4,6 +4,7 @@ import { cn } from "cn";
 import type { FormEvent, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ayoExecuteParts } from "@/protocol";
 import type { Approval } from "@/workspace-data";
 
 export type ApprovalQuestion = Pick<Approval, "question" | "detail" | "code" | "options">;
@@ -11,6 +12,22 @@ export type ApprovalQuestion = Pick<Approval, "question" | "detail" | "code" | "
 const optionRow =
 	"flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-[0.6rem] px-3 py-2 text-left text-[0.95rem] " +
 	"transition-colors hover:bg-sheet focus-visible:bg-sheet touch:min-h-12";
+
+const codeBlock = "rounded bg-sheet px-2.5 py-2 font-mono text-sm whitespace-pre-wrap [overflow-wrap:anywhere]";
+
+/** The code is never clipped or scrolled inside the block: what Oladayo approves is all on the page. */
+function ApprovalCode({ params, code }: { params: string; code: string }) {
+	return (
+		<div className="mt-1 grid gap-1">
+			<p className="text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase">
+				Code · {code.split("\n").length} lines
+			</p>
+			<pre className={codeBlock}>{code}</pre>
+			<p className="text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase">Params</p>
+			<pre className={cn(codeBlock, "max-h-40 overflow-auto")}>{params}</pre>
+		</div>
+	);
+}
 
 /**
  * A question from Phoebe, with the code it is about when there is any. The options stand one per line, the recommended one first and marked;
@@ -48,11 +65,7 @@ export function ApprovalBlock({
 				<p className="text-[0.72rem] font-semibold tracking-wide text-star uppercase">Phoebe asks</p>
 				<p className="text-[1.02rem] leading-snug font-semibold">{approval.question}</p>
 				{approval.detail && <p className="text-[0.9rem] leading-snug text-ink-soft">{approval.detail}</p>}
-				{approval.code && (
-					<pre className="mt-1 max-h-80 overflow-auto rounded bg-sheet px-2.5 py-2 font-mono text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">
-						{approval.code}
-					</pre>
-				)}
+				{approval.code && <ApprovalCode {...ayoExecuteParts(approval.code)} />}
 				{children}
 			</div>
 			<ul className="grid gap-1 border-t border-star/20 pt-2.5" aria-label="Options">
