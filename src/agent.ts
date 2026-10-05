@@ -17,7 +17,7 @@ import { AYO_CALLBACK_PATH } from "./protocol";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
 import { askExtension } from "./tools/ask";
-import { ayoExtension, connectAyo, isAyoConnected } from "./tools/ayo";
+import { ayoExtension, connectAyo, isAyoConnected, recallFromAyo } from "./tools/ayo";
 import { delegateExtension } from "./tools/delegate";
 import { memoryExtension } from "./tools/memory";
 
@@ -58,7 +58,7 @@ export class PiAgent extends DurableObject<Env> {
 				}),
 			);
 			this.registry.install(instructions);
-			const memory = memoryExtension(this.memory);
+			const memory = memoryExtension(this.memory, (query, limit, signal) => recallFromAyo(this.mcp, query, limit, signal));
 			const ask = askExtension(this.approvals);
 			this.registry.install(memory);
 			this.registry.install(toolsExtension(this.env.AI, this.chats));

@@ -21,8 +21,16 @@ function formatEntries(entries: readonly MemoryEntry[]): string {
 		.join("\n");
 }
 
-/** Memory tools and the facts section. Its own extension because it reads the object's storage. */
-export function memoryExtension(memory: Memory) {
+const DEFAULT_RECALL_LIMIT = 10;
+
+/** What another memory holds about a query, as text for the model. Undefined when it cannot be reached. */
+type OtherMemory = (query: string, limit: number, signal: AbortSignal | undefined) => Promise<string | undefined>;
+
+/**
+ * Memory tools and the facts section. Its own extension because it reads the object's storage.
+ * `recall` also reads `ayoMemory`, which Oladayo's other assistants write; Phoebe writes only her own.
+ */
+export function memoryExtension(memory: Memory, ayoMemory: OtherMemory) {
 	const remember = defineTool({
 		name: "remember",
 		description:
@@ -42,17 +50,18 @@ export function memoryExtension(memory: Memory) {
 	const recall = defineTool({
 		name: "recall",
 		description:
-			"Search long-term memory (facts and notes) for entries that contain every word of the query, newest first. Use short keywords, such as a name or a topic, not a sentence.",
+			"Search long-term memory (facts and notes) for entries that contain every word of the query, newest first. Use short keywords, such as a name or a topic, not a sentence. Also returns what Ayo's memory holds on the topic; those entries are read-only, so `forget` does not take them.",
 		parameters: Type.Object({
 			query: Type.String({ minLength: 1, description: "One to three keywords." }),
-			limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "Default 10." })),
+			limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: `Default ${DEFAULT_RECALL_LIMIT}.` })),
 		}),
 		replay: "safe",
-		async execute({ query, limit }) {
+		async execute({ query, limit = DEFAULT_RECALL_LIMIT }, _api, context) {
 			if (query.trim().length === 0) return { content: textContent("Give at least one keyword."), isError: true };
 			const entries = memory.recall(query, limit);
-			if (entries.length === 0) return { content: textContent(`Nothing in memory matches "${query}".`) };
-			return { content: textContent(formatEntries(entries)) };
+			const own = entries.length === 0 ? `Nothing in your memory matches "${query}".` : formatEntries(entries);
+			const fromAyo = await ayoMemory(query, limit, context.abortSignal);
+			return { content: textContent(`${own}\n\nAyo's memory:\n${fromAyo ?? "Not reachable now."}`) };
 		},
 	});
 
