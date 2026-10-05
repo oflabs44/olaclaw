@@ -10,19 +10,21 @@ export type PanelSide = "left" | "right";
 
 /**
  * A side panel's open state, kept in the root route's search params. An absent param means the
- * device default: open on a wide screen, closed (a drawer or sheet) on a phone.
+ * default. The left panel is a pane on a wide screen, open by default, and a drawer on a phone. The
+ * right panel is a sheet on every screen, so it starts closed.
  */
 export function usePanel(side: PanelSide) {
 	const value = useSearch({ from: "__root__", select: (search) => search[side] });
 	const isPhone = useIsPhone();
 	const navigate = useNavigate();
-	const isOpen = isPhone ? value === "open" : value !== "closed";
+	const opensByDefault = side === "left" && !isPhone;
+	const isOpen = opensByDefault ? value !== "closed" : value === "open";
 
 	function setOpen(open: boolean) {
-		// Leave the param out when the state is the device default.
+		// Leave the param out when the state is the default.
 		let next: "open" | "closed" | undefined;
-		if (open && isPhone) next = "open";
-		if (!open && !isPhone) next = "closed";
+		if (open && !opensByDefault) next = "open";
+		if (!open && opensByDefault) next = "closed";
 		void navigate({ to: ".", search: (previous) => ({ ...previous, [side]: next }), replace: true });
 	}
 

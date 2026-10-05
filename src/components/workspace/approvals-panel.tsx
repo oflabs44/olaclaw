@@ -11,6 +11,7 @@ import { SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import { ayoExecuteParts } from "@/protocol";
 import { type Approval, type DecidedApproval, decideApproval, getDecidedApproval } from "@/workspace-data";
+import type { WorkspaceSearch } from "@/routes/__root";
 import { useIsPhone } from "./panels";
 
 const TIME_ZONE = "Europe/Berlin";
@@ -178,11 +179,16 @@ function DecidedRow({
 	);
 }
 
+// A link to a chat also closes the sheet, which would otherwise stay over the chat.
+function closesSheet(previous: WorkspaceSearch): WorkspaceSearch {
+	return { ...previous, right: undefined };
+}
+
 /**
- * The right pane: what Phoebe asked and what Oladayo chose. An open chat shows its own approvals;
+ * The approvals sheet: what Phoebe asked and what Oladayo chose. An open chat shows its own approvals;
  * every other page shows those of all chats, each with a link to its chat.
  */
-export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
+export function ApprovalsPanel() {
 	const openChatId = useParams({ strict: false, select: (params) => params.chatId });
 	const allApprovals = useLoaderData({ from: "__root__", select: (data) => data.approvals });
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
@@ -200,6 +206,7 @@ export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
 				<Link
 					to="/chats/$chatId"
 					params={{ chatId: approval.chatId }}
+					search={closesSheet}
 					className="truncate text-[0.82rem] text-ink-soft underline underline-offset-4"
 				>
 					{chats.find((chat) => chat.id === approval.chatId)?.title ?? "Chat"}
@@ -222,11 +229,7 @@ export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
 
 	return (
 		<div className="flex flex-col gap-3">
-			{isSheet ? (
-				<SheetTitle className={cn(heading, "text-center")}>Approvals</SheetTitle>
-			) : (
-				<h2 className={heading}>Approvals</h2>
-			)}
+			<SheetTitle className={cn(heading, isPhone && "text-center")}>Approvals</SheetTitle>
 			{approvals.length === 0 && (
 				<Empty className="items-start p-0 px-2 text-left">
 					<EmptyDescription className="text-[0.9rem]">
@@ -247,7 +250,7 @@ export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
 										<Button
 											variant="quiet"
 											nativeButton={false}
-											render={<Link to="/chats/$chatId" params={{ chatId: approval.chatId }} />}
+											render={<Link to="/chats/$chatId" params={{ chatId: approval.chatId }} search={closesSheet} />}
 										>
 											Review in chat
 										</Button>
@@ -279,8 +282,7 @@ export function ApprovalsPanel({ isSheet = false }: { isSheet?: boolean }) {
 						),
 				)}
 			</ul>
-			{/* This panel renders twice, as the pane and as the phone sheet. Only the one in use holds the dialog. */}
-			{isSheet === isPhone && <ApprovalDialog />}
+			<ApprovalDialog />
 		</div>
 	);
 }

@@ -123,8 +123,8 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 /**
- * The chrome strip on wide screens, then the stage: left pane, the card with the page, approvals pane.
- * Phones drop the chrome and the card frame; the panes become a drawer and a bottom sheet.
+ * The chrome strip on wide screens, then the stage: the left pane and the card with the page.
+ * Phones drop the chrome and the card frame, and the left pane becomes a drawer. The approvals open as a sheet over the page.
  */
 function Workspace() {
 	useKeyboardViewport();

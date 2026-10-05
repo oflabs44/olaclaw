@@ -12,13 +12,15 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type PanelSide, usePanel } from "./panels";
 
-const PANEL_NAMES: Record<PanelSide, string> = { left: "left panel", right: "approvals panel" };
+const PANEL_NAMES: Record<PanelSide, string> = { left: "left panel", right: "approvals" };
 const PHONE_LABELS: Record<PanelSide, string> = { left: "Open chats", right: "Open approvals" };
 const PANEL_KEYS: Record<PanelSide, string> = { left: "[", right: "]" };
 
 function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode }) {
 	const panel = usePanel(side);
-	const label = panel.isPhone ? PHONE_LABELS[side] : `${panel.isOpen ? "Hide" : "Show"} the ${PANEL_NAMES[side]}`;
+	// The approvals are a sheet on every screen, so their toggle only opens; the sheet closes itself.
+	const opensSheet = panel.isPhone || side === "right";
+	const label = opensSheet ? PHONE_LABELS[side] : `${panel.isOpen ? "Hide" : "Show"} the ${PANEL_NAMES[side]}`;
 
 	return (
 		<Tooltip>
@@ -27,8 +29,8 @@ function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode 
 					<Button
 						icon
 						aria-label={label}
-						aria-pressed={panel.isPhone ? undefined : panel.isOpen}
-						aria-expanded={panel.isPhone ? panel.isOpen : undefined}
+						aria-pressed={opensSheet ? undefined : panel.isOpen}
+						aria-expanded={opensSheet ? panel.isOpen : undefined}
 						onClick={panel.toggle}
 						className="relative aria-pressed:text-ink max-wide:text-ink"
 					/>
@@ -66,7 +68,7 @@ export function PageHeader({ title, subtitle, status }: { title: string; subtitl
 			</div>
 			{status}
 			<PanelToggle side="right">
-				<HugeiconsIcon icon={SidebarRight01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
+				<HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
 				<HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} strokeWidth={1.5} className="wide:hidden" />
 				{needsYouCount > 0 && (
 					<span

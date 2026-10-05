@@ -53,21 +53,25 @@ export function LeftPane() {
 	);
 }
 
+/** The approvals: a sheet from the right on a wide screen and a bottom sheet on a phone, so the page keeps one sidebar. */
 export function ApprovalsPane() {
 	const panel = usePanel("right");
 	return (
-		<>
-			<SidePane isOpen={!panel.isPhone && panel.isOpen} label="Approvals" width="17rem">
-				<ApprovalsPanel />
-			</SidePane>
-			<Sheet open={panel.isPhone && panel.isOpen} onOpenChange={panel.setOpen}>
-				<SheetContent className="px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+		<Sheet swipeDirection={panel.isPhone ? "down" : "right"} open={panel.isOpen} onOpenChange={panel.setOpen}>
+			<SheetContent
+				className={
+					panel.isPhone
+						? "px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]"
+						: "border-l border-line px-3 pt-3 pb-4 shadow-float"
+				}
+			>
+				{panel.isPhone && (
 					<span className="mx-auto mt-0.5 mb-1.5 block h-1 w-10 shrink-0 rounded-full bg-line-strong" aria-hidden="true" />
-					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-						<ApprovalsPanel isSheet />
-					</div>
-				</SheetContent>
-			</Sheet>
-		</>
+				)}
+				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+					<ApprovalsPanel />
+				</div>
+			</SheetContent>
+		</Sheet>
 	);
 }
