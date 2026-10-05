@@ -1,6 +1,6 @@
 import {
 	BubbleChatIcon,
-	CheckmarkCircle02Icon,
+	TaskDone01Icon,
 	SidebarLeft01Icon,
 	SidebarRight01Icon,
 } from "@hugeicons/core-free-icons";
@@ -68,8 +68,8 @@ export function PageHeader({ title, subtitle, status }: { title: string; subtitl
 			</div>
 			{status}
 			<PanelToggle side="right">
-				<HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
-				<HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} strokeWidth={1.5} className="wide:hidden" />
+				<HugeiconsIcon icon={TaskDone01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
+				<HugeiconsIcon icon={TaskDone01Icon} size={20} strokeWidth={1.5} className="wide:hidden" />
 				{needsYouCount > 0 && (
 					<span
 						className="absolute top-2 right-2 size-[7px] rounded-full bg-star shadow-[0_0_0_2px_var(--paper)] wide:hidden"
