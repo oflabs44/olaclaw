@@ -15,11 +15,12 @@ const NOT_AT_A_DESK = "This chat is not at a desk, so it has no brief and no not
 const HIDDEN_CHARACTERS = /[^\P{C}\n]|[\uFE00-\uFE0E\u{E0100}-\u{E01EF}]/u;
 
 /**
- * A brief or a note sits inside a `<brief>` or `<notebook>` block of the system prompt. With this, the
- * text can neither close its block nor open one that looks like the other.
+ * Text of a desk as it goes into the system prompt, whose sections and blocks are tags. Without angle
+ * brackets the text cannot close its block or open one that looks like another part of the prompt.
+ * A list of tag names to refuse would miss a spelling; the stored text stays as written.
  */
-function withoutBlockTags(text: string): string {
-	return text.replaceAll(/<(\/?\s*(?:brief|notebook))/gi, "<\\$1");
+function withoutTags(text: string): string {
+	return text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 /** `YYYY-MM-DD HH:MM` in Oladayo's time zone: a note often says when something was last checked. */
@@ -112,15 +113,15 @@ export function deskExtension(
 				const brief =
 					desk.brief === ""
 						? "No brief yet. Ask Oladayo what he wants from this desk when the request is not clear, and offer to draft the brief."
-						: withoutBlockTags(desk.brief);
+						: withoutTags(desk.brief);
 				const notes = desks.notes(desk.id);
 				const notebook =
 					notes.length === 0
 						? "Empty."
 						: notes
-								.map((entry) => `- [id ${entry.id}, ${formatTime(entry.createdAt)}] ${withoutBlockTags(entry.text)}`)
+								.map((entry) => `- [id ${entry.id}, ${formatTime(entry.createdAt)}] ${withoutTags(entry.text)}`)
 								.join("\n");
-				return `This chat is at Oladayo's "${desk.name}" desk: a standing job. Each chat here is one visit, and Oladayo expects you to know the job and where it stands without a new explanation.
+				return `This chat is at Oladayo's "${withoutTags(desk.name)}" desk: a standing job. Each chat here is one visit, and Oladayo expects you to know the job and where it stands without a new explanation.
 
 The brief, which Oladayo wrote or approved. It says what the job is and what his short requests mean here:
 <brief>
