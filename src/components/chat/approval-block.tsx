@@ -11,7 +11,7 @@ import { TokenLine } from "./token-line";
 export type ApprovalQuestion = {
 	readonly question: string;
 	readonly detail?: string;
-	/** Code the answer decides on, as `ayoExecuteCode` prints it. */
+	/** Code the answer decides on: the printed params, an empty line, then the code. */
 	readonly code?: string;
 	readonly options: readonly string[];
 };

@@ -21,35 +21,13 @@ export type DelegateDetails = {
 	usage?: UsageState;
 };
 
-/** The tool whose running call the chat renders as code to approve. */
+/** The tool whose call the chat shows with its code as code. */
 export const AYO_EXECUTE_TOOL = "ayo_execute";
 
-/** The approval every `ayo_execute` call opens. Only the first option runs the code. */
-export const AYO_EXECUTE_APPROVAL = {
-	question: "Run this code in Ayo?",
-	options: ["Run it", "Do not run"],
-} as const;
-
 /**
- * The params and code Oladayo reads before he approves an `ayo_execute` call, as one text. Every
- * character of the params outside printable ASCII shows as an escape, and the tool refuses code that
- * is not printable ASCII, so nothing can pass for something else on screen.
- */
-export function ayoExecuteCode(code: string, params: unknown): string {
-	const shownParams =
-		params === undefined
-			? "none"
-			: JSON.stringify(params, null, 2).replace(
-					/[^\n\x20-\x7E]/g,
-					(character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
-				);
-	return `${shownParams}\n\n${code}`;
-}
-
-/**
- * The two parts of `ayoExecuteCode`'s text. Printed JSON has no empty line, so the first one is the
- * border, whatever the code contains. The chat shows the parts apart: neither can push the other out
- * of sight or pass for it.
+ * The two parts of a stored code approval: the printed params, an empty line, then the code. Printed
+ * JSON has no empty line, so the first one is the border, whatever the code contains. The history
+ * shows the parts apart.
  */
 export function ayoExecuteParts(shown: string): { params: string; code: string } {
 	const border = shown.indexOf("\n\n");
@@ -65,9 +43,6 @@ export function ayoCalls(code: string): string[] {
 	return [...new Set([...code.matchAll(/\bayo\.([A-Za-z_]\w*)\s*\(/g)].map((match) => match[1]))];
 }
 
-/** What an `ayo_execute` call reports once Oladayo approved it; the chat then stops asking. */
-export type AyoExecuteDetails = { approved: true };
-
 /** URL path of the chat socket. The Worker forwards upgrades on it to the user's object. */
 export const SOCKET_PATH = "agent-socket";
 
@@ -81,7 +56,7 @@ export const AGENT_NAME = "oladayo";
 export type ClientMessage =
 	| { readonly type: "submit"; readonly text: string }
 	| { readonly type: "abort" }
-	/** The answer to an `ask` or `ayo_execute` tool call of the connection's session. */
+	/** The answer to an `ask` tool call of the connection's session. */
 	| { readonly type: "decide"; readonly callId: string; readonly answer: string };
 
 /** Server → client. */

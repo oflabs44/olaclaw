@@ -65,7 +65,7 @@ export class PiAgent extends DurableObject<Env> {
 			this.registry.install(memory);
 			this.registry.install(toolsExtension(this.env.AI, this.chats));
 			this.registry.install(ask);
-			const ayo = ayoExtension(this.mcp, this.approvals);
+			const ayo = ayoExtension(this.mcp);
 			this.registry.install(ayo);
 			this.registry.install(delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask, ayo]));
 			this.registry.install(clock);
