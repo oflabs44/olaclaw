@@ -37,7 +37,7 @@ function ConnectionsPage() {
 					<div className="grid min-w-0 gap-0.5">
 						<p className="font-medium">Ayo</p>
 						<p className="text-[0.9rem] text-ink-soft">
-							Your mail, files, calendar, tasks, and notes. Phoebe shows you her code and asks before she runs it there.
+							Your mail, files, calendar, tasks, and notes. Phoebe runs her code there without asking; the chat shows what she ran.
 						</p>
 					</div>
 					{isAyoConnected ? (
