@@ -14,6 +14,11 @@ const MAX_TEXT_BYTES = 19_000;
 // A wake restores the connection in the background; a call or a page load waits this long for it.
 const RESTORE_TIMEOUT_MILLISECONDS = 5_000;
 
+// Tab, newline, and printable ASCII. Anything else can look in the chat like something it is not.
+const PLAIN_CODE = /^[\t\n\x20-\x7E]*$/;
+// Three empty lines in a row, or a long run of spaces: room to push code out of sight.
+const PADDING = /(\n[\t ]*){4}|[\t ]{80}/;
+
 const NOT_CONNECTED = "Ayo is not connected. Ask Oladayo to connect Ayo in the app, then try again.";
 
 const USAGE = `Ayo is Oladayo's other assistant. It holds his mail, files, calendar, mail-domain admin, GitHub issues, and jobs. Use it only when the request needs that data or an action there.
@@ -188,7 +193,7 @@ function ayoExecuteTool(mcp: AyoClient) {
 		description:
 			"Run JavaScript against Ayo's capabilities through `ayo.<name>(input)`. The module must default-export a function; put every declaration inside that function. There is no network access, `params` is a global object, and the run has 30 seconds. Returns JSON with the result and the logs.",
 		parameters: Type.Object({
-			code: Type.String({ minLength: 1, description: "The module source." }),
+			code: Type.String({ minLength: 1, description: "The module source, in printable ASCII." }),
 			params: Type.Optional(
 				Type.Record(Type.String(), Type.Unknown(), { description: "Values the code reads from the global `params`." }),
 			),
@@ -199,6 +204,12 @@ function ayoExecuteTool(mcp: AyoClient) {
 		replay: "safe",
 		outputLimits: OUTPUT_LIMITS,
 		async execute(args, api, context) {
+			// The chat is the only record of what ran, so the code must read there exactly as it runs.
+			if (!PLAIN_CODE.test(args.code) || PADDING.test(args.code)) {
+				return errorResult(
+					"Refused: the code must be printable ASCII with tabs and newlines only, without runs of empty lines or spaces. Pass other text through params, or write it as \\u escapes.",
+				);
+			}
 			// The first run to get here wins the memo. A rerun after a restart loses it and must not call Ayo again.
 			const attempt = crypto.randomUUID();
 			if ((await api.memo("attempt", attempt, context)) !== attempt) {
