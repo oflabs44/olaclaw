@@ -21,6 +21,22 @@ export type DelegateDetails = {
 	usage?: UsageState;
 };
 
+/** The tool whose running call the chat renders as a new brief to approve. */
+export const DESK_PROPOSE_BRIEF_TOOL = "desk_propose_brief";
+
+/**
+ * What Oladayo reads when Phoebe proposes a new brief for a desk. The tool and the chat both build it
+ * from the call's arguments, so he approves the text that is saved. Only the first option changes the brief.
+ */
+export function deskBriefProposal(brief: string, reason: string) {
+	return {
+		question: "Replace this desk's brief?",
+		// The reason stays on one line, so it cannot look like the brief that follows it.
+		detail: `Why: ${reason.trim().replace(/\s+/g, " ")}\n\nThe new brief:\n${brief.trim()}`,
+		options: ["Use the new brief", "Keep the current brief"],
+	};
+}
+
 /** The tool whose call the chat shows with its code as code. */
 export const AYO_EXECUTE_TOOL = "ayo_execute";
 
@@ -56,7 +72,7 @@ export const AGENT_NAME = "oladayo";
 export type ClientMessage =
 	| { readonly type: "submit"; readonly text: string }
 	| { readonly type: "abort" }
-	/** The answer to an `ask` tool call of the connection's session. */
+	/** The answer to an `ask` or `desk_propose_brief` tool call of the connection's session. */
 	| { readonly type: "decide"; readonly callId: string; readonly answer: string };
 
 /** Server → client. */

@@ -1,5 +1,5 @@
 export type ApprovalRecord = {
-	/** The id of the `ask` or `ayo_execute` tool call that waits for the decision. */
+	/** The id of the `ask` or `desk_propose_brief` tool call that waits for the decision. */
 	readonly callId: string;
 	readonly sessionId: string;
 	readonly question: string;
@@ -93,8 +93,10 @@ export class Approvals {
 			if (existing.question !== question || JSON.stringify(existing.options) !== JSON.stringify(options)) {
 				throw new Error(`Call id ${callId} already asked a different question`);
 			}
-			// The question of a code approval is fixed, so the code is what tells two calls apart.
+			// The question of a code approval is fixed, so the code is what tells two calls apart. For a
+			// proposed brief it is the detail, which holds the brief.
 			if (existing.code !== (code ?? null)) throw new Error(`Call id ${callId} already asked about other code`);
+			if (existing.detail !== (detail ?? null)) throw new Error(`Call id ${callId} already asked with another detail`);
 			return;
 		}
 		this.#sql.exec(

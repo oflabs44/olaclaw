@@ -4,7 +4,7 @@ import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
 import { Fragment, type ReactNode, Suspense, use, useState } from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import { ASK_TOOL, AYO_EXECUTE_TOOL, DELEGATE_TOOL } from "@/protocol";
+import { ASK_TOOL, AYO_EXECUTE_TOOL, DELEGATE_TOOL, DESK_PROPOSE_BRIEF_TOOL, deskBriefProposal } from "@/protocol";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -187,6 +187,15 @@ function askedQuestion(call: ToolCall): ApprovalQuestion | undefined {
 		detail: typeof detail === "string" ? detail : undefined,
 		options: options.filter((option) => typeof option === "string"),
 	};
+}
+
+/** The approval of a `desk_propose_brief` call. Undefined when the arguments are not what the tool takes. */
+function proposedBrief(call: ToolCall): ApprovalQuestion | undefined {
+	const args = call.arguments;
+	if (typeof args !== "object" || args === null || !("brief" in args) || !("reason" in args)) return undefined;
+	const { brief, reason } = args;
+	if (typeof brief !== "string" || typeof reason !== "string") return undefined;
+	return deskBriefProposal(brief, reason);
 }
 
 function AskBlock({ call, approval }: { call: ToolCall; approval: ApprovalQuestion }) {
@@ -465,10 +474,11 @@ export function AssistantMessage({
 					delegateCalls.push(part);
 					return;
 				}
-				// `ask` waits for a choice while it runs. Once answered it shows as any other tool call.
+				// `ask` and `desk_propose_brief` wait for a choice while they run. Once answered, each shows as any other tool call.
 				const isWaiting = !isReadOnly && !toolResults.has(part.id) && runningTools.has(part.id);
 				let approval: ApprovalQuestion | undefined;
 				if (isWaiting && part.name === ASK_TOOL) approval = askedQuestion(part);
+				if (isWaiting && part.name === DESK_PROPOSE_BRIEF_TOOL) approval = proposedBrief(part);
 				if (!approval) {
 					flushDelegateCalls();
 					steps.push(part);

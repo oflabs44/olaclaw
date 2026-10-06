@@ -1,11 +1,12 @@
 import { cn } from "cn";
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { DESK_HUES, DESK_ICONS, type DeskHue, type DeskIconName, MAX_DESK_BRIEF_LENGTH, MAX_DESK_NAME_LENGTH } from "@/desk-look";
 import type { DeskInput } from "@/desks";
+import { draftDeskBrief } from "@/workspace-data";
 import { DeskIcon } from "./desk-icon";
 
 const labelClass = "text-[0.85rem] font-semibold text-ink-soft";
@@ -29,6 +30,38 @@ export function DeskForm({
 	save: (input: DeskInput) => Promise<void>;
 }) {
 	const [isSaving, setIsSaving] = useState(false);
+	const [isDrafting, setIsDrafting] = useState(false);
+	// What the field held before Phoebe's draft replaced it, so one tap brings it back.
+	const [textBeforeDraft, setTextBeforeDraft] = useState<string>();
+	const briefField = useRef<HTMLTextAreaElement>(null);
+
+	/** Phoebe turns what the field holds into a brief. The draft only fills the field; Oladayo saves it. */
+	async function draftBrief() {
+		const field = briefField.current;
+		if (!field?.form || isDrafting) return;
+		const name = String(new FormData(field.form).get("name")).trim();
+		const description = field.value.trim();
+		if (name === "" || description === "") {
+			toast.add({ title: "Name the desk and write a line about the job", description: "Phoebe drafts the brief from that." });
+			return;
+		}
+		setIsDrafting(true);
+		try {
+			const draft = await draftDeskBrief({ data: { name, description } });
+			setTextBeforeDraft(field.value);
+			field.value = draft;
+		} catch (error) {
+			console.error("Cannot draft the brief", error);
+			toast.add({ title: "Could not draft the brief", description: "Try again in a moment." });
+		} finally {
+			setIsDrafting(false);
+		}
+	}
+
+	function undoDraft() {
+		if (briefField.current && textBeforeDraft !== undefined) briefField.current.value = textBeforeDraft;
+		setTextBeforeDraft(undefined);
+	}
 
 	async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -103,21 +136,30 @@ export function DeskForm({
 				</label>
 				<p className="text-[0.85rem] text-ink-soft">
 					What this desk is for, what Phoebe checks, and what your short requests mean here. She reads it in every
-					chat at this desk. Only you change it.
+					chat at this desk. Write it yourself, or write a line about the job and let her draft it. It changes only
+					when you save it or approve her proposal.
 				</p>
 				<Textarea
+					ref={briefField}
 					id="desk-brief"
 					name="brief"
 					defaultValue={desk.brief}
+					readOnly={isDrafting}
 					maxLength={MAX_DESK_BRIEF_LENGTH}
 					rows={8}
 					placeholder={'"Anything new?" means: check my inbox for mail since the last check. Tell me only what needs a reply or a decision.'}
 					className="min-h-48 rounded border border-line-strong bg-sheet px-3.5 py-2.5 transition-colors focus:border-primary max-wide:text-[16px]"
 				/>
 			</div>
-			<Button type="submit" variant="primary" disabled={isSaving} className="justify-self-start">
-				{submitLabel}
-			</Button>
+			<div className="flex flex-wrap items-center gap-2">
+				<Button type="submit" variant="primary" disabled={isSaving || isDrafting}>
+					{submitLabel}
+				</Button>
+				<Button variant="quiet" disabled={isDrafting} onClick={draftBrief}>
+					{isDrafting ? "Drafting…" : "Draft with Phoebe"}
+				</Button>
+				{textBeforeDraft !== undefined && <Button onClick={undoDraft}>Undo the draft</Button>}
+			</div>
 		</form>
 	);
 }

@@ -91,7 +91,7 @@ export function ApprovalCard({
 					Phoebe asks
 				</p>
 				<p className="text-[1.02rem] leading-snug font-semibold">{approval.question}</p>
-				{approval.detail && <p className="text-[0.9rem] leading-snug text-ink-soft">{approval.detail}</p>}
+				{approval.detail && <p className="text-[0.9rem] leading-snug whitespace-pre-wrap text-ink-soft">{approval.detail}</p>}
 			</div>
 			{children}
 		</div>

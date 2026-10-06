@@ -14,7 +14,7 @@ import { AGENT_NAME } from "./protocol";
 
 /** A decision the assistant asked for, shown in the approvals panel. It waits until `decision` is set. */
 export type Approval = {
-	/** The id of the `ask` or `ayo_execute` tool call that asked. */
+	/** The id of the `ask` or `desk_propose_brief` tool call that asked. */
 	readonly id: string;
 	readonly chatId: string;
 	readonly question: string;
@@ -88,6 +88,11 @@ export const updateDesk = createServerFn({ method: "POST" })
 	.handler(async ({ data: { deskId, ...input } }): Promise<void> => {
 		if (!(await userAgent().updateDesk(deskId, input))) throw notFound();
 	});
+
+/** A brief that Phoebe writes from the desk's name and a rough description of the job. It is not saved. */
+export const draftDeskBrief = createServerFn({ method: "POST" })
+	.validator(deskInput.pick({ name: true }).extend({ description: z.string().trim().min(1).max(MAX_DESK_BRIEF_LENGTH) }))
+	.handler(({ data }): Promise<string> => userAgent().draftDeskBrief(data.name, data.description));
 
 /** A desk with its notebook, oldest note first. */
 export const getDesk = createServerFn()

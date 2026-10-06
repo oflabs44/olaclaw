@@ -60,7 +60,7 @@ function ApprovalDetail({ callId }: { callId: string }) {
 
 	return (
 		<>
-			{approval.detail && <p className="text-[0.85rem] leading-snug text-ink-soft">{approval.detail}</p>}
+			{approval.detail && <p className="text-[0.85rem] leading-snug whitespace-pre-wrap text-ink-soft">{approval.detail}</p>}
 			<ul className="grid gap-1" aria-label="Options">
 				{approval.options.map((option) => {
 					const isChosen = option === approval.decision;

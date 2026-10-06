@@ -10,6 +10,7 @@ import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
 import { type ApprovalRecord, type ApprovalSummary, Approvals } from "./approvals";
 import { type ChatSummary, Chats } from "./chats";
+import { MAX_DESK_BRIEF_LENGTH } from "./desk-look";
 import { type Desk, type DeskInput, type DeskNote, Desks } from "./desks";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
@@ -26,6 +27,11 @@ import { memoryExtension } from "./tools/memory";
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
 
 const APPROVAL_LIST_LIMIT = 100;
+
+const BRIEF_WRITER = `You write the brief of a desk for Phoebe, the personal assistant of Oladayo. A desk is a standing job that Oladayo comes back to across days and weeks. Phoebe reads the brief at the start of every chat at the desk. She can reach his mail, calendar, files, tasks, and notes through a connected service, search the web, and keep a notebook for the desk.
+You get the name of the desk and what Oladayo wrote about the job. Write the brief, addressed to Phoebe as "you". Cover these points in this order, each only where his words give a basis: what the job is; what his short requests mean here, such as "anything new?"; what to report and what to leave out; what to record in the notebook after each visit; what needs his confirmation first.
+Do not invent names, accounts, addresses, or rules that he did not give. Leave a point out when he said nothing about it.
+Use short, plain sentences and at most 200 words. Plain text, no Markdown headings. Write in the language of his words. Reply with the brief only.`;
 
 export class PiAgent extends DurableObject<Env> {
 	// The gateway retries a burst-limited vendor call itself; only a request that still fails falls back to Kimi.
@@ -45,7 +51,7 @@ export class PiAgent extends DurableObject<Env> {
 	readonly memory = new Memory(this.ctx.storage.sql);
 	readonly approvals = new Approvals(this.ctx.storage.sql);
 	readonly desks = new Desks(this.ctx.storage.sql);
-	readonly deskExtension = deskExtension((session) => this.chats.deskOf(session), this.desks);
+	readonly deskExtension = deskExtension((session) => this.chats.deskOf(session), this.desks, this.approvals);
 	// The MCP client for Ayo. It keeps the OAuth token in this object's storage and restores the connection after a wake.
 	readonly mcp = new MCPClientManager("olaclaw", "1.0.0");
 
@@ -161,6 +167,32 @@ export class PiAgent extends DurableObject<Env> {
 	/** False when no desk has this id. */
 	updateDesk(deskId: string, input: DeskInput): boolean {
 		return this.desks.update(deskId, input);
+	}
+
+	/** A brief for a desk from what Oladayo wrote about the job. Nothing is saved: he reads it in the form and saves it himself. */
+	async draftDeskBrief(name: string, description: string): Promise<string> {
+		const answer = await this.ai.completeSimple(
+			this.models[DEFAULT_MODEL],
+			{
+				systemPrompt: BRIEF_WRITER,
+				messages: [
+					{
+						role: "user",
+						content: `Desk name: ${name}\n\nWhat Oladayo wrote about the job:\n${description}`,
+						timestamp: Date.now(),
+					},
+				],
+			},
+			{ maxTokens: 1_000 },
+		);
+		// A failed or cut-off answer resolves too; a brief without its end must not look complete.
+		if (answer.stopReason !== "stop") throw new Error(`Cannot draft the brief: ${answer.errorMessage ?? answer.stopReason}`);
+		const brief = answer.content
+			.map((block) => (block.type === "text" ? block.text : ""))
+			.join("")
+			.trim();
+		if (brief.length === 0) throw new Error("The model wrote no brief");
+		return brief.slice(0, MAX_DESK_BRIEF_LENGTH);
 	}
 
 	/** A desk with its notebook, oldest note first. Undefined when no desk has this id. */

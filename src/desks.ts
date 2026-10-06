@@ -25,7 +25,7 @@ function toDesk(row: DeskRow): Desk {
 }
 
 /**
- * Oladayo's desks: a standing job each, with a brief that he writes and a notebook that Phoebe keeps.
+ * Oladayo's desks: a standing job each, with a brief that he writes or approves and a notebook that Phoebe keeps.
  * The chats of a desk name it in `chat.desk_id`. A desk id is its row id as text; SQLite compares it
  * with the integer column as a number.
  */
@@ -80,6 +80,10 @@ export class Desks {
 			id,
 		);
 		return cursor.rowsWritten > 0;
+	}
+
+	setBrief(id: string, brief: string): void {
+		this.#sql.exec("UPDATE desk SET brief = ? WHERE id = ?", brief, id);
 	}
 
 	/** The desk's notebook, oldest first, so the prompt stays stable as notes are added. */
