@@ -17,6 +17,7 @@ const closeOmnibox = (previous: WorkspaceSearch) => ({ ...previous, omni: undefi
 export function Omnibox() {
 	const omnibox = useOmnibox();
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+	const desks = useLoaderData({ from: "__root__", select: (data) => data.desks });
 	const [query, setQuery] = useState("");
 
 	const destinations: Destination[] = [
@@ -25,13 +26,24 @@ export function Omnibox() {
 		{ key: "memory", label: "Memory", group: "Go to", to: "/memory" },
 		{ key: "connections", label: "Connections", group: "Go to", to: "/connections" },
 		{ key: "chats", label: "All chats", group: "Go to", to: "/chats" },
-		...chatTree(chats).map(({ chat }) => ({
-			key: `chat-${chat.id}`,
-			label: chat.parentId === null ? chat.title : `${parentTitle(chat, chats) ?? "Chat"} › ${chat.title}`,
-			group: "Chats",
-			to: "/chats/$chatId" as const,
-			params: { chatId: chat.id },
+		...desks.map((desk) => ({
+			key: `desk-${desk.id}`,
+			label: desk.name,
+			group: "Desks",
+			to: "/desks/$deskId" as const,
+			params: { deskId: desk.id },
 		})),
+		...chatTree(chats).map(({ chat }) => {
+			const deskName = desks.find((desk) => desk.id === chat.deskId)?.name;
+			const parent = chat.parentId === null ? undefined : (parentTitle(chat, chats) ?? "Chat");
+			return {
+				key: `chat-${chat.id}`,
+				label: [deskName, parent, chat.title].filter((part) => part !== undefined).join(" › "),
+				group: "Chats",
+				to: "/chats/$chatId" as const,
+				params: { chatId: chat.id },
+			};
+		}),
 	];
 	const matches = destinations.filter((destination) =>
 		destination.label.toLowerCase().includes(query.trim().toLowerCase()),

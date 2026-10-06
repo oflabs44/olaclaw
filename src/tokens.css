@@ -46,6 +46,49 @@
 	color-scheme: dark;
 }
 
+/* Inside a desk, the surfaces and the primary take the desk's hue: <html data-desk> carries it
+   (routes/__root.tsx). An element with data-desk shows that desk's colours on its own, for an icon or
+   a swatch. The hues are those of desk-look.ts, which also holds --paper as hex for the theme-color. */
+[data-desk="red"] {
+	--desk-hue: 25;
+}
+[data-desk="orange"] {
+	--desk-hue: 55;
+}
+[data-desk="amber"] {
+	--desk-hue: 85;
+}
+[data-desk="green"] {
+	--desk-hue: 150;
+}
+[data-desk="teal"] {
+	--desk-hue: 195;
+}
+[data-desk="blue"] {
+	--desk-hue: 250;
+}
+[data-desk="violet"] {
+	--desk-hue: 295;
+}
+[data-desk="pink"] {
+	--desk-hue: 350;
+}
+
+[data-desk] {
+	--paper: oklch(0.972 0.012 var(--desk-hue));
+	--sheet: oklch(0.995 0.004 var(--desk-hue));
+	--primary: oklch(0.5 0.14 var(--desk-hue));
+	--chrome: oklch(0.2 0.035 var(--desk-hue));
+}
+
+[data-theme="dark"][data-desk],
+[data-theme="dark"] [data-desk] {
+	--paper: oklch(0.18 0.018 var(--desk-hue));
+	--sheet: oklch(0.215 0.02 var(--desk-hue));
+	--primary: oklch(0.76 0.13 var(--desk-hue));
+	--chrome: oklch(0.14 0.018 var(--desk-hue));
+}
+
 :root {
 	--ink-soft: color-mix(in oklab, var(--ink) 64%, transparent);
 	--ink-faint: color-mix(in oklab, var(--ink) 42%, transparent);

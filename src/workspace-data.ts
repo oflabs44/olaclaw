@@ -4,6 +4,8 @@ import { getRequest } from "@tanstack/react-start/server";
 import { notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import type { ChatSummary } from "./chats";
+import { DESK_HUES, DESK_ICONS, MAX_DESK_BRIEF_LENGTH, MAX_DESK_NAME_LENGTH } from "./desk-look";
+import type { Desk, DeskNote } from "./desks";
 import type { MemoryEntry } from "./memory";
 import { AGENT_NAME } from "./protocol";
 
@@ -64,6 +66,48 @@ export const forkChat = createServerFn({ method: "POST" })
 export const setChatModel = createServerFn({ method: "POST" })
 	.validator(z.object({ chatId: z.string(), model: z.string() }))
 	.handler(({ data }): Promise<void> => userAgent().setChatModel(data.chatId, data.model));
+
+// A desk id is a row id. Other spellings of the same number, such as "1.0", must not reach SQLite, which would take them.
+const deskId = z.string().regex(/^[1-9][0-9]{0,15}$/);
+
+const deskInput = z.object({
+	name: z.string().trim().min(1).max(MAX_DESK_NAME_LENGTH),
+	brief: z.string().trim().max(MAX_DESK_BRIEF_LENGTH),
+	hue: z.enum(DESK_HUES),
+	icon: z.enum(DESK_ICONS),
+});
+
+export const getDesks = createServerFn().handler((): Promise<Desk[]> => userAgent().listDesks());
+
+export const createDesk = createServerFn({ method: "POST" })
+	.validator(deskInput)
+	.handler(({ data }): Promise<Desk> => userAgent().createDesk(data));
+
+export const updateDesk = createServerFn({ method: "POST" })
+	.validator(deskInput.extend({ deskId }))
+	.handler(async ({ data: { deskId, ...input } }): Promise<void> => {
+		if (!(await userAgent().updateDesk(deskId, input))) throw notFound();
+	});
+
+/** A desk with its notebook, oldest note first. */
+export const getDesk = createServerFn()
+	// The id comes from the URL, so one of the wrong form is a page that does not exist, not a failed load.
+	.validator(z.object({ deskId: z.string() }))
+	.handler(async ({ data }): Promise<{ desk: Desk; notes: DeskNote[] }> => {
+		if (!deskId.safeParse(data.deskId).success) throw notFound();
+		const desk = await userAgent().getDesk(data.deskId);
+		if (!desk) throw notFound();
+		return desk;
+	});
+
+export const removeDeskNote = createServerFn({ method: "POST" })
+	.validator(z.object({ deskId, noteId: z.number().int() }))
+	.handler(({ data }): Promise<void> => userAgent().removeDeskNote(data.deskId, data.noteId));
+
+/** A new chat at the desk, already running on `text`. */
+export const startDeskChat = createServerFn({ method: "POST" })
+	.validator(z.object({ deskId, text: z.string().trim().min(1) }))
+	.handler(({ data }): Promise<ChatSummary> => userAgent().startDeskChat(data.deskId, data.text));
 
 /** The waiting approvals first, then the decided ones, newest first. Without the code: see `getDecidedApproval`. */
 export const getApprovals = createServerFn().handler(async (): Promise<Approval[]> => {

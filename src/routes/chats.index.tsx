@@ -23,11 +23,12 @@ function ChatsPage() {
 					</EmptyMedia>
 					<EmptyTitle>Pick a chat</EmptyTitle>
 					<EmptyDescription>
-						Your chats, most recent first, each branch under its chat. Start a new one from the left pane.
+						Your chats, most recent first, each branch under its chat. Start a new one from the left pane. The chats of
+						a desk are at the desk.
 					</EmptyDescription>
 				</EmptyHeader>
 				<EmptyContent className="items-stretch gap-0.5 text-left">
-					{chatTree(chats).map((row) => (
+					{chatTree(chats.filter((chat) => chat.deskId === null)).map((row) => (
 						<ChatLink key={row.chat.id} row={row} />
 					))}
 				</EmptyContent>

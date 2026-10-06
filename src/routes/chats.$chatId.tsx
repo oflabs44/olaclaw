@@ -5,6 +5,7 @@ import { Composer } from "@/components/chat/composer";
 import { Conversation } from "@/components/chat/conversation";
 import { SubagentPaneContext } from "@/components/chat/subagent-card";
 import { parentTitle } from "@/components/workspace/chat-tree";
+import { useActiveDesk } from "@/components/workspace/current-place";
 import { PageHeader } from "@/components/workspace/page-header";
 import { PiSessionProvider, usePiSession } from "@/pi-session";
 import { getChat } from "@/workspace-data";
@@ -55,25 +56,34 @@ function ChatPage() {
 	);
 }
 
+const subtitleLinkClass = "underline decoration-line-strong underline-offset-2 hover:text-ink";
+
 function ChatHeader() {
 	const chat = Route.useLoaderData();
 	const parent = useLoaderData({ from: "__root__", select: (data) => parentTitle(chat, data.chats) });
+	const desk = useActiveDesk();
 	const isRunning = usePiSession((state) => state.running);
 	return (
 		<PageHeader
 			title={chat.title}
 			subtitle={
-				chat.parentId !== null && (
+				(desk || chat.parentId !== null) && (
 					<>
-						from{" "}
-						<Link
-							to="/chats/$chatId"
-							params={{ chatId: chat.parentId }}
-							search
-							className="underline decoration-line-strong underline-offset-2 hover:text-ink"
-						>
-							{parent ?? "a chat"}
-						</Link>
+						{/* On a phone this is the way back to the desk: the left pane is a closed drawer there. */}
+						{desk && (
+							<Link to="/desks/$deskId" params={{ deskId: desk.id }} search className={subtitleLinkClass}>
+								{desk.name}
+							</Link>
+						)}
+						{desk && chat.parentId !== null && " · "}
+						{chat.parentId !== null && (
+							<>
+								from{" "}
+								<Link to="/chats/$chatId" params={{ chatId: chat.parentId }} search className={subtitleLinkClass}>
+									{parent ?? "a chat"}
+								</Link>
+							</>
+						)}
 					</>
 				)
 			}

@@ -15,6 +15,11 @@ import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as RoutinesRouteImport } from './routes/routines'
 import { Route as ChatsIndexRouteImport } from './routes/chats.index'
 import { Route as ChatsChatIdRouteImport } from './routes/chats.$chatId'
+import { Route as DesksDeskIdRouteImport } from './routes/desks.$deskId'
+import { Route as DesksNewRouteImport } from './routes/desks.new'
+import { Route as DesksDeskIdIndexRouteImport } from './routes/desks.$deskId.index'
+import { Route as DesksDeskIdBriefRouteImport } from './routes/desks.$deskId.brief'
+import { Route as DesksDeskIdNotebookRouteImport } from './routes/desks.$deskId.notebook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +51,31 @@ const ChatsChatIdRoute = ChatsChatIdRouteImport.update({
   path: '/chats/$chatId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DesksDeskIdRoute = DesksDeskIdRouteImport.update({
+  id: '/desks/$deskId',
+  path: '/desks/$deskId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DesksNewRoute = DesksNewRouteImport.update({
+  id: '/desks/new',
+  path: '/desks/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DesksDeskIdIndexRoute = DesksDeskIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DesksDeskIdRoute,
+} as any)
+const DesksDeskIdBriefRoute = DesksDeskIdBriefRouteImport.update({
+  id: '/brief',
+  path: '/brief',
+  getParentRoute: () => DesksDeskIdRoute,
+} as any)
+const DesksDeskIdNotebookRoute = DesksDeskIdNotebookRouteImport.update({
+  id: '/notebook',
+  path: '/notebook',
+  getParentRoute: () => DesksDeskIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,7 +83,12 @@ export interface FileRoutesByFullPath {
   '/memory': typeof MemoryRoute
   '/routines': typeof RoutinesRoute
   '/chats/$chatId': typeof ChatsChatIdRoute
+  '/desks/$deskId': typeof DesksDeskIdRouteWithChildren
+  '/desks/new': typeof DesksNewRoute
   '/chats/': typeof ChatsIndexRoute
+  '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
+  '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
+  '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -61,7 +96,11 @@ export interface FileRoutesByTo {
   '/memory': typeof MemoryRoute
   '/routines': typeof RoutinesRoute
   '/chats/$chatId': typeof ChatsChatIdRoute
+  '/desks/new': typeof DesksNewRoute
   '/chats': typeof ChatsIndexRoute
+  '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
+  '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
+  '/desks/$deskId': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,7 +109,12 @@ export interface FileRoutesById {
   '/memory': typeof MemoryRoute
   '/routines': typeof RoutinesRoute
   '/chats/$chatId': typeof ChatsChatIdRoute
+  '/desks/$deskId': typeof DesksDeskIdRouteWithChildren
+  '/desks/new': typeof DesksNewRoute
   '/chats/': typeof ChatsIndexRoute
+  '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
+  '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
+  '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -80,10 +124,24 @@ export interface FileRouteTypes {
     | '/memory'
     | '/routines'
     | '/chats/$chatId'
+    | '/desks/$deskId'
+    | '/desks/new'
     | '/chats/'
+    | '/desks/$deskId/brief'
+    | '/desks/$deskId/notebook'
+    | '/desks/$deskId/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/connections' | '/memory' | '/routines' | '/chats/$chatId' | '/chats'
+    | '/'
+    | '/connections'
+    | '/memory'
+    | '/routines'
+    | '/chats/$chatId'
+    | '/desks/new'
+    | '/chats'
+    | '/desks/$deskId/brief'
+    | '/desks/$deskId/notebook'
+    | '/desks/$deskId'
   id:
     | '__root__'
     | '/'
@@ -91,7 +149,12 @@ export interface FileRouteTypes {
     | '/memory'
     | '/routines'
     | '/chats/$chatId'
+    | '/desks/$deskId'
+    | '/desks/new'
     | '/chats/'
+    | '/desks/$deskId/brief'
+    | '/desks/$deskId/notebook'
+    | '/desks/$deskId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -100,6 +163,8 @@ export interface RootRouteChildren {
   MemoryRoute: typeof MemoryRoute
   RoutinesRoute: typeof RoutinesRoute
   ChatsChatIdRoute: typeof ChatsChatIdRoute
+  DesksDeskIdRoute: typeof DesksDeskIdRouteWithChildren
+  DesksNewRoute: typeof DesksNewRoute
   ChatsIndexRoute: typeof ChatsIndexRoute
 }
 
@@ -147,8 +212,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatsChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/desks/$deskId': {
+      id: '/desks/$deskId'
+      path: '/desks/$deskId'
+      fullPath: '/desks/$deskId'
+      preLoaderRoute: typeof DesksDeskIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/desks/new': {
+      id: '/desks/new'
+      path: '/desks/new'
+      fullPath: '/desks/new'
+      preLoaderRoute: typeof DesksNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/desks/$deskId/': {
+      id: '/desks/$deskId/'
+      path: '/'
+      fullPath: '/desks/$deskId/'
+      preLoaderRoute: typeof DesksDeskIdIndexRouteImport
+      parentRoute: typeof DesksDeskIdRoute
+    }
+    '/desks/$deskId/brief': {
+      id: '/desks/$deskId/brief'
+      path: '/brief'
+      fullPath: '/desks/$deskId/brief'
+      preLoaderRoute: typeof DesksDeskIdBriefRouteImport
+      parentRoute: typeof DesksDeskIdRoute
+    }
+    '/desks/$deskId/notebook': {
+      id: '/desks/$deskId/notebook'
+      path: '/notebook'
+      fullPath: '/desks/$deskId/notebook'
+      preLoaderRoute: typeof DesksDeskIdNotebookRouteImport
+      parentRoute: typeof DesksDeskIdRoute
+    }
   }
 }
+
+interface DesksDeskIdRouteChildren {
+  DesksDeskIdBriefRoute: typeof DesksDeskIdBriefRoute
+  DesksDeskIdNotebookRoute: typeof DesksDeskIdNotebookRoute
+  DesksDeskIdIndexRoute: typeof DesksDeskIdIndexRoute
+}
+
+const DesksDeskIdRouteChildren: DesksDeskIdRouteChildren = {
+  DesksDeskIdBriefRoute: DesksDeskIdBriefRoute,
+  DesksDeskIdNotebookRoute: DesksDeskIdNotebookRoute,
+  DesksDeskIdIndexRoute: DesksDeskIdIndexRoute,
+}
+
+const DesksDeskIdRouteWithChildren = DesksDeskIdRoute._addFileChildren(
+  DesksDeskIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -156,6 +272,8 @@ const rootRouteChildren: RootRouteChildren = {
   MemoryRoute: MemoryRoute,
   RoutinesRoute: RoutinesRoute,
   ChatsChatIdRoute: ChatsChatIdRoute,
+  DesksDeskIdRoute: DesksDeskIdRouteWithChildren,
+  DesksNewRoute: DesksNewRoute,
   ChatsIndexRoute: ChatsIndexRoute,
 }
 export const routeTree = rootRouteImport

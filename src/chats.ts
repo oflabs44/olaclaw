@@ -1,4 +1,4 @@
-import type { Conversation, EntryId, ModelRef } from "@earendil-works/pi-durable";
+import type { Conversation, EntryId, Extension, ModelRef } from "@earendil-works/pi-durable";
 import { type PiHarness, type PiSessionId, ROOT_SESSION } from "agents/harness/pi";
 import { DEFAULT_MODEL, type ModelId } from "./models";
 
@@ -12,6 +12,8 @@ export type ChatSummary = {
 	readonly parentId: string | null;
 	/** The last Pi entry a branch shares with its parent. */
 	readonly forkEntryId: string | null;
+	/** The desk the chat belongs to, or null for a chat outside the desks. A branch stays at its parent's desk. */
+	readonly deskId: string | null;
 };
 
 type ChatRow = {
@@ -21,6 +23,7 @@ type ChatRow = {
 	updated_at: number;
 	parent_session_id: string | null;
 	fork_entry_id: string | null;
+	desk_id: number | null;
 };
 
 const UNTITLED = "New chat";
@@ -62,11 +65,19 @@ export class Chats {
 	readonly #sql: SqlStorage;
 	readonly #harness: PiHarness;
 	readonly #nameChat: (firstMessage: string) => Promise<string>;
+	readonly #deskExtension: Extension;
 
-	constructor(sql: SqlStorage, harness: PiHarness, nameChat: (firstMessage: string) => Promise<string>) {
+	/** `deskExtension` is what the chats of a desk get on top of the other chats' extensions. */
+	constructor(
+		sql: SqlStorage,
+		harness: PiHarness,
+		nameChat: (firstMessage: string) => Promise<string>,
+		deskExtension: Extension,
+	) {
 		this.#sql = sql;
 		this.#harness = harness;
 		this.#nameChat = nameChat;
+		this.#deskExtension = deskExtension;
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS chat (session_id TEXT PRIMARY KEY, title TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 		);
@@ -81,6 +92,7 @@ export class Chats {
 			sql.exec("ALTER TABLE chat ADD COLUMN parent_session_id TEXT");
 			sql.exec("ALTER TABLE chat ADD COLUMN fork_entry_id TEXT");
 		}
+		if (!columns.includes("desk_id")) sql.exec("ALTER TABLE chat ADD COLUMN desk_id INTEGER");
 		// URLs Oladayo typed in a chat, plus the results of a web_search there: the only ones `fetch_url`
 		// may fetch in that chat. A fetched page cannot name a URL to send data to; it can at most make the
 		// model search, and the query text is guarded only by the prompt.
@@ -103,7 +115,7 @@ export class Chats {
 	list(): ChatSummary[] {
 		const rows = this.#sql
 			.exec<ChatRow>(
-				"SELECT session_id, title, model, updated_at, parent_session_id, fork_entry_id FROM chat ORDER BY updated_at DESC, created_at DESC",
+				"SELECT session_id, title, model, updated_at, parent_session_id, fork_entry_id, desk_id FROM chat ORDER BY updated_at DESC, created_at DESC",
 			)
 			.toArray();
 		const rowsById = new Map(rows.map((row) => [row.session_id, row]));
@@ -120,24 +132,40 @@ export class Chats {
 			updatedAt: row.updated_at,
 			parentId: row.parent_session_id,
 			forkEntryId: row.fork_entry_id,
+			deskId: row.desk_id === null ? null : String(row.desk_id),
 		}));
 	}
 
-	async create(): Promise<ChatSummary> {
+	/** A new, empty chat. With `deskId` it belongs to that desk, which the caller checked. */
+	async create(deskId: string | null = null): Promise<ChatSummary> {
 		const session = await this.#harness.sessions.create();
+		if (deskId !== null) {
+			const conversation = await this.#harness.conversation(session.id);
+			await conversation.configure({ extensions: { add: [this.#deskExtension] } }, BACKGROUND);
+		}
 		const now = Date.now();
 		this.#sql.exec(
-			"INSERT INTO chat (session_id, title, created_at, updated_at, model) VALUES (?, NULL, ?, ?, ?)",
+			"INSERT INTO chat (session_id, title, created_at, updated_at, model, desk_id) VALUES (?, NULL, ?, ?, ?, ?)",
 			session.id,
 			now,
 			now,
 			DEFAULT_MODEL,
+			deskId,
 		);
-		return { id: session.id, title: UNTITLED, model: DEFAULT_MODEL, updatedAt: now, parentId: null, forkEntryId: null };
+		return {
+			id: session.id,
+			title: UNTITLED,
+			model: DEFAULT_MODEL,
+			updatedAt: now,
+			parentId: null,
+			forkEntryId: null,
+			deskId,
+		};
 	}
 
 	/**
-	 * A new chat that shares the parent's transcript up to `entryId` and continues on its own.
+	 * A new chat that shares the parent's transcript up to `entryId` and continues on its own, at the
+	 * parent's desk: Pi copies the parent's extensions to a fork.
 	 * It starts with no given URLs: `fetch_url` needs them typed or searched again in the branch.
 	 */
 	async fork(
@@ -161,13 +189,14 @@ export class Chats {
 		const forkEntryId = String(at);
 		const now = Date.now();
 		this.#sql.exec(
-			"INSERT INTO chat (session_id, title, created_at, updated_at, model, parent_session_id, fork_entry_id) VALUES (?, NULL, ?, ?, ?, ?, ?)",
+			"INSERT INTO chat (session_id, title, created_at, updated_at, model, parent_session_id, fork_entry_id, desk_id) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
 			id,
 			now,
 			now,
 			parent.model,
 			parentSession,
 			forkEntryId,
+			parent.deskId,
 		);
 		return {
 			id,
@@ -176,11 +205,18 @@ export class Chats {
 			updatedAt: now,
 			parentId: parentSession,
 			forkEntryId,
+			deskId: parent.deskId,
 		};
 	}
 
 	setModel(session: PiSessionId, model: ModelId): void {
 		this.#sql.exec("UPDATE chat SET model = ? WHERE session_id = ?", model, session);
+	}
+
+	/** The desk of a chat. Null for a chat outside the desks and for a session that is no chat, such as a subagent's. */
+	deskOf(session: PiSessionId): string | null {
+		const row = this.#sql.exec<{ desk_id: number | null }>("SELECT desk_id FROM chat WHERE session_id = ?", session).toArray()[0];
+		return row === undefined || row.desk_id === null ? null : String(row.desk_id);
 	}
 
 	has(session: PiSessionId): boolean {

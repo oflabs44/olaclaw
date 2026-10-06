@@ -3,7 +3,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { usePiSession } from "@/pi-session";
-import { useCurrentPlace } from "./current-place";
+import { useActiveDesk, useCurrentPlace } from "./current-place";
+import { DeskTile } from "./desk-icon";
 import { useOmnibox } from "./panels";
 
 /** Bureau's omni trigger: a quiet pill, at least 280px, that says where you are and is the way in. */
@@ -38,23 +39,32 @@ function OmniTrigger() {
 /** The dark strip on wide screens: wordmark, the omni trigger, the account. */
 export function Chrome() {
 	const isRunning = usePiSession((state) => state.running);
+	const desk = useActiveDesk();
 
 	return (
 		<header className="on-chrome grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-[0.9rem] py-[0.45rem] max-wide:hidden">
-			<p className="flex items-center gap-2 font-bold tracking-[-0.01em]">
-				<span
-					className="grid size-[1.3rem] place-items-center rounded-[6px] bg-[#0275de] shadow-(--inset-shadow-chip)"
-					aria-hidden="true"
-				>
-					<HugeiconsIcon
-						icon={Activity01Icon}
-						size={14}
-						strokeWidth={1.5}
-						className={cn("text-white", isRunning && "animate-turn")}
-					/>
-				</span>
-				olaclaw
-			</p>
+			{/* Inside a desk the strip carries the desk's name and emblem in place of the wordmark. */}
+			{desk ? (
+				<p className="flex min-w-0 items-center gap-2 font-bold tracking-[-0.01em]">
+					<DeskTile icon={desk.icon} hue={desk.hue} size={14} className="size-[1.3rem] rounded-[6px]" />
+					<span className="truncate">{desk.name}</span>
+				</p>
+			) : (
+				<p className="flex items-center gap-2 font-bold tracking-[-0.01em]">
+					<span
+						className="grid size-[1.3rem] place-items-center rounded-[6px] bg-[#0275de] shadow-(--inset-shadow-chip)"
+						aria-hidden="true"
+					>
+						<HugeiconsIcon
+							icon={Activity01Icon}
+							size={14}
+							strokeWidth={1.5}
+							className={cn("text-white", isRunning && "animate-turn")}
+						/>
+					</span>
+					olaclaw
+				</p>
+			)}
 			<OmniTrigger />
 			<div className="flex justify-end">
 				<Avatar role="img" aria-label="Oladayo">

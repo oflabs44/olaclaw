@@ -10,6 +10,7 @@ import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
 import { type ApprovalRecord, type ApprovalSummary, Approvals } from "./approvals";
 import { type ChatSummary, Chats } from "./chats";
+import { type Desk, type DeskInput, type DeskNote, Desks } from "./desks";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
@@ -19,6 +20,7 @@ import { toolsExtension } from "./tools";
 import { askExtension } from "./tools/ask";
 import { ayoExtension, connectAyo, isAyoConnected, recallFromAyo } from "./tools/ayo";
 import { delegateExtension } from "./tools/delegate";
+import { deskExtension } from "./tools/desk";
 import { memoryExtension } from "./tools/memory";
 
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
@@ -42,6 +44,8 @@ export class PiAgent extends DurableObject<Env> {
 	readonly registry = createRegistry();
 	readonly memory = new Memory(this.ctx.storage.sql);
 	readonly approvals = new Approvals(this.ctx.storage.sql);
+	readonly desks = new Desks(this.ctx.storage.sql);
+	readonly deskExtension = deskExtension((session) => this.chats.deskOf(session), this.desks);
 	// The MCP client for Ayo. It keeps the OAuth token in this object's storage and restores the connection after a wake.
 	readonly mcp = new MCPClientManager("olaclaw", "1.0.0");
 
@@ -59,22 +63,25 @@ export class PiAgent extends DurableObject<Env> {
 					models: [this.models["claude-sonnet-5-5"], this.models["claude-opus-5-5"]],
 				}),
 			);
-			this.registry.install(instructions);
 			const memory = memoryExtension(this.memory, (query, limit, signal) => recallFromAyo(this.mcp, query, limit, signal));
 			const ask = askExtension(this.approvals);
-			this.registry.install(memory);
-			this.registry.install(toolsExtension(this.env.AI, this.chats));
-			this.registry.install(ask);
 			const ayo = ayoExtension(this.mcp);
-			this.registry.install(ayo);
-			this.registry.install(delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask, ayo]));
-			this.registry.install(clock);
-			return Harness.open(storage, { models, registry: this.registry }, context);
+			const delegate = delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask, ayo]);
+			// What every chat gets, in prompt order. A chat of a desk adds `deskExtension` after these.
+			const everyChat = [instructions, memory, toolsExtension(this.env.AI, this.chats), ask, ayo, delegate, clock];
+			for (const extension of everyChat) this.registry.install(extension);
+			this.registry.install(this.deskExtension);
+			return Harness.open(storage, { models, registry: this.registry, settings: { extensions: everyChat } }, context);
 		},
 		defaults: { model: this.models[DEFAULT_MODEL] },
 	});
 
-	readonly chats = new Chats(this.ctx.storage.sql, this.harness, (firstMessage) => this.nameChat(firstMessage));
+	readonly chats = new Chats(
+		this.ctx.storage.sql,
+		this.harness,
+		(firstMessage) => this.nameChat(firstMessage),
+		this.deskExtension,
+	);
 
 	readonly sessionSockets = new PiSessionSockets(
 		this.harness,
@@ -141,6 +148,40 @@ export class PiAgent extends DurableObject<Env> {
 		if (!this.chats.has(chatId)) throw new Error(`Unknown chat ${JSON.stringify(chatId)}`);
 		await this.harness.session(chatId).setModel(this.models[known.id]);
 		this.chats.setModel(chatId, known.id);
+	}
+
+	listDesks(): Desk[] {
+		return this.desks.list();
+	}
+
+	createDesk(input: DeskInput): Desk {
+		return this.desks.create(input);
+	}
+
+	/** False when no desk has this id. */
+	updateDesk(deskId: string, input: DeskInput): boolean {
+		return this.desks.update(deskId, input);
+	}
+
+	/** A desk with its notebook, oldest note first. Undefined when no desk has this id. */
+	getDesk(deskId: string): { desk: Desk; notes: DeskNote[] } | undefined {
+		const desk = this.desks.find(deskId);
+		return desk && { desk, notes: this.desks.notes(deskId) };
+	}
+
+	removeDeskNote(deskId: string, noteId: number): void {
+		this.desks.removeNote(deskId, noteId);
+	}
+
+	/** A new chat at the desk that starts with `text`. The run goes on without a socket; the chat page then follows it. */
+	async startDeskChat(deskId: string, text: string): Promise<ChatSummary> {
+		if (!this.desks.find(deskId)) throw new Error(`Unknown desk ${JSON.stringify(deskId)}`);
+		// An RPC call does not pass through `fetch`, and the run needs the MCP client for Ayo.
+		await this.lifecycle.start();
+		const chat = await this.chats.create(deskId);
+		this.chats.recordSubmit(chat.id, text);
+		await this.harness.session(chat.id).submit(text);
+		return chat;
 	}
 
 	listMemories(): MemoryEntry[] {

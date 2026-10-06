@@ -1,8 +1,11 @@
 import {
+	ArrowLeft01Icon,
 	Brain01Icon,
 	Calendar03Icon,
 	GitBranchIcon,
 	Home01Icon,
+	Notebook01Icon,
+	NoteIcon,
 	Plug01Icon,
 	PlusSignIcon,
 } from "@hugeicons/core-free-icons";
@@ -12,10 +15,13 @@ import { cn } from "cn";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import type { Desk } from "@/desks";
 import { type ConnectionStatus, usePiSession } from "@/pi-session";
 import type { WorkspaceSearch } from "@/routes/__root";
 import { createChat } from "@/workspace-data";
 import { type ChatTreeRow, chatTree } from "./chat-tree";
+import { useActiveDesk } from "./current-place";
+import { DeskIcon, DeskTile } from "./desk-icon";
 import { ThemeToggle } from "./theme-toggle";
 
 const navRowClass =
@@ -23,6 +29,11 @@ const navRowClass =
 	"hover:bg-wash data-[status=active]:bg-wash-strong touch:min-h-11 [&_svg]:text-ink-soft";
 
 const sectionLinkClass = `${navRowClass} gap-2.5 py-[0.42rem] text-[0.92rem] font-medium text-ink`;
+
+const groupHeadingClass = "px-[0.7rem] py-1 text-[0.8rem] font-semibold text-ink-faint";
+
+// A group's action sits by its heading, so it needs no scrolling when the list is long.
+const groupActionClass = "h-7 px-2.5 text-[12.5px] touch:h-10";
 
 // A step smaller and tighter than a section link, so the chat list reads as a list under the sections.
 // The open chat differs only in ink strength: no surface, so the list stays quiet.
@@ -35,6 +46,11 @@ const SECTIONS: { to: "/" | "/routines" | "/memory" | "/connections"; label: str
 	{ to: "/routines", label: "Routines", icon: Calendar03Icon },
 	{ to: "/memory", label: "Memory", icon: Brain01Icon },
 	{ to: "/connections", label: "Connections", icon: Plug01Icon },
+];
+
+const DESK_PAGES: { to: "/desks/$deskId/brief" | "/desks/$deskId/notebook"; label: string; icon: IconSvgElement }[] = [
+	{ to: "/desks/$deskId/brief", label: "Brief", icon: NoteIcon },
+	{ to: "/desks/$deskId/notebook", label: "Notebook", icon: Notebook01Icon },
 ];
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
@@ -113,14 +129,55 @@ export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; clos
 	);
 }
 
-const statusItemClass = "flex items-center gap-1.5 whitespace-nowrap";
+/** The desks, each in its own colour. A dot says that a chat at the desk waits for an answer. */
+function DeskLinks({ closesDrawer }: { closesDrawer: boolean }) {
+	const desks = useLoaderData({ from: "__root__", select: (data) => data.desks });
+	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+	const approvals = useLoaderData({ from: "__root__", select: (data) => data.approvals });
+	const waitingChatIds = new Set(
+		approvals.filter((approval) => approval.decision === undefined).map((approval) => approval.chatId),
+	);
+	return (
+		<div className="grid gap-0.5">
+			<div className="mb-1.5 flex items-center justify-between pr-1">
+				<p className={groupHeadingClass}>Desks</p>
+				<Button
+					variant="quiet"
+					className={groupActionClass}
+					nativeButton={false}
+					render={<Link to="/desks/new" search={linkSearch(closesDrawer)} />}
+				>
+					<HugeiconsIcon icon={PlusSignIcon} size={16} strokeWidth={1.75} />
+					New desk
+				</Button>
+			</div>
+			{desks.map((desk) => (
+				<Link
+					key={desk.id}
+					to="/desks/$deskId"
+					params={{ deskId: desk.id }}
+					search={linkSearch(closesDrawer)}
+					// Not `sectionLinkClass`: that one paints every icon in soft ink.
+					className="flex w-full min-w-0 items-center gap-2.5 rounded px-[0.7rem] py-[0.42rem] text-[0.92rem] font-medium text-ink hover:bg-wash touch:min-h-11"
+				>
+					<DeskIcon icon={desk.icon} hue={desk.hue} />
+					<span className="min-w-0 truncate">{desk.name}</span>
+					{chats.some((chat) => chat.deskId === desk.id && waitingChatIds.has(chat.id)) && (
+						<>
+							<span className="ml-auto size-1.5 shrink-0 rounded-full bg-star" aria-hidden="true" />
+							<span className="sr-only">, needs you</span>
+						</>
+					)}
+				</Link>
+			))}
+		</div>
+	);
+}
 
-/** The left pane: where you are. The same content fills the phone drawer. */
-export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean }) {
+/** The workspace outside the desks: the sections, the desks, and the chats that belong to no desk. */
+function HomeNav({ closesDrawer }: { closesDrawer: boolean }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
 	const isAyoConnected = useLoaderData({ from: "__root__", select: (data) => data.isAyoConnected });
-	// The connection status belongs to the open chat's socket.
-	const status = usePiSession((state) => (state.chatId === undefined ? undefined : state.status));
 	const router = useRouter();
 	const navigate = useNavigate();
 
@@ -143,7 +200,7 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 	}
 
 	return (
-		<nav aria-label="Workspace" className="flex h-full flex-col gap-5">
+		<>
 			<div className="grid gap-0.5">
 				{SECTIONS.map((section) => (
 					<Link
@@ -164,61 +221,141 @@ export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean 
 					</Link>
 				))}
 			</div>
+			<DeskLinks closesDrawer={closesDrawer} />
 			<div className="grid gap-0.5">
-				{/* The new-chat button sits by the heading, so it needs no scrolling when the list is long. */}
 				<div className="mb-1.5 flex items-center justify-between pr-1">
 					<Link
 						to="/chats"
 						search={linkSearch(closesDrawer)}
 						activeOptions={{ exact: true }}
-						className="flex items-center rounded px-[0.7rem] py-1 text-[0.8rem] font-semibold text-ink-faint hover:text-ink-soft touch:min-h-11"
+						className={`flex items-center rounded hover:text-ink-soft touch:min-h-11 ${groupHeadingClass}`}
 					>
 						Chats
 					</Link>
-					<Button variant="quiet" className="h-7 px-2.5 text-[12.5px] touch:h-10" disabled={isStartingChat} onClick={startChat}>
+					<Button variant="quiet" className={groupActionClass} disabled={isStartingChat} onClick={startChat}>
 						<HugeiconsIcon icon={PlusSignIcon} size={16} strokeWidth={1.75} />
 						New chat
 					</Button>
 				</div>
-				{chatTree(chats).map((row) => (
+				{chatTree(chats.filter((chat) => chat.deskId === null)).map((row) => (
 					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
 				))}
 			</div>
-			{/* The line runs to the edges of the pane or drawer, through their side padding. */}
-			<div
-				className={cn(
-					"mt-auto flex items-center justify-between gap-2 border-t border-line pt-3",
-					closesDrawer ? "-mx-3 px-3" : "-mx-1.5 px-1.5",
-				)}
-			>
-				<div className="flex min-w-0 items-center pl-[0.7rem] text-[0.8rem] text-ink-soft">
-					<p
-						className={statusItemClass}
-						role="status"
-						title={status && `Phoebe: ${STATUS_LABELS[status]}`}
-					>
-						{status && (
-							<>
-								<span
-									className={cn("size-[0.45rem] shrink-0 rounded-full", STATUS_DOTS[status])}
-									aria-hidden="true"
-								/>
-								{status === "open" ? (
-									<>
-										Phoebe<span className="sr-only"> connected</span>
-									</>
-								) : (
-									<>
-										<span className="sr-only">Phoebe: </span>
-										{STATUS_LABELS[status]}
-									</>
-								)}
-							</>
-						)}
-					</p>
-				</div>
-				<ThemeToggle />
+		</>
+	);
+}
+
+/** The workspace inside a desk: the way out, the desk's own pages, and only its chats. */
+function DeskNav({ desk, closesDrawer }: { desk: Desk; closesDrawer: boolean }) {
+	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+	return (
+		<>
+			<div className="grid gap-3">
+				<Link
+					to="/"
+					search={linkSearch(closesDrawer)}
+					className="flex w-fit items-center gap-1 rounded px-[0.45rem] py-1 text-[0.8rem] font-medium text-ink-soft hover:text-ink touch:min-h-11"
+				>
+					<HugeiconsIcon icon={ArrowLeft01Icon} size={15} strokeWidth={1.75} />
+					Phoebe
+				</Link>
+				<Link
+					to="/desks/$deskId"
+					params={{ deskId: desk.id }}
+					search={linkSearch(closesDrawer)}
+					className="flex min-w-0 items-center gap-2.5 rounded px-[0.7rem] py-1 touch:min-h-11"
+				>
+					<DeskTile icon={desk.icon} hue={desk.hue} size={17} className="size-7 rounded-[8px]" />
+					<span className="min-w-0 truncate text-lg font-semibold">{desk.name}</span>
+				</Link>
 			</div>
+			<div className="grid gap-0.5">
+				{DESK_PAGES.map((page) => (
+					<Link
+						key={page.to}
+						to={page.to}
+						params={{ deskId: desk.id }}
+						search={linkSearch(closesDrawer)}
+						className={sectionLinkClass}
+					>
+						<HugeiconsIcon icon={page.icon} size={18} strokeWidth={1.5} />
+						{page.label}
+					</Link>
+				))}
+			</div>
+			<div className="grid gap-0.5">
+				<div className="mb-1.5 flex items-center justify-between pr-1">
+					<p className={groupHeadingClass}>Chats</p>
+					{/* A chat at a desk starts from the desk's home, with its first message. */}
+					<Button
+						variant="quiet"
+						className={groupActionClass}
+						nativeButton={false}
+						render={<Link to="/desks/$deskId" params={{ deskId: desk.id }} search={linkSearch(closesDrawer)} />}
+					>
+						<HugeiconsIcon icon={PlusSignIcon} size={16} strokeWidth={1.75} />
+						New chat
+					</Button>
+				</div>
+				{chatTree(chats.filter((chat) => chat.deskId === desk.id)).map((row) => (
+					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
+				))}
+			</div>
+		</>
+	);
+}
+
+const statusItemClass = "flex items-center gap-1.5 whitespace-nowrap";
+
+/** The left pane: where you are. The same content fills the phone drawer. Inside a desk it is the desk's own. */
+export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean }) {
+	const desk = useActiveDesk();
+	return (
+		<nav aria-label={desk ? desk.name : "Workspace"} className="flex h-full flex-col gap-5">
+			{desk ? <DeskNav desk={desk} closesDrawer={closesDrawer} /> : <HomeNav closesDrawer={closesDrawer} />}
+			<NavFooter closesDrawer={closesDrawer} />
 		</nav>
+	);
+}
+
+function NavFooter({ closesDrawer }: { closesDrawer: boolean }) {
+	// The connection status belongs to the open chat's socket.
+	const status = usePiSession((state) => (state.chatId === undefined ? undefined : state.status));
+	return (
+		// The line runs to the edges of the pane or drawer, through their side padding.
+		<div
+			className={cn(
+				"mt-auto flex items-center justify-between gap-2 border-t border-line pt-3",
+				closesDrawer ? "-mx-3 px-3" : "-mx-1.5 px-1.5",
+			)}
+		>
+			<div className="flex min-w-0 items-center pl-[0.7rem] text-[0.8rem] text-ink-soft">
+				<p
+					className={statusItemClass}
+					role="status"
+					title={status && `Phoebe: ${STATUS_LABELS[status]}`}
+				>
+					{status && (
+						<>
+							<span
+								className={cn("size-[0.45rem] shrink-0 rounded-full", STATUS_DOTS[status])}
+								aria-hidden="true"
+							/>
+							{status === "open" ? (
+								<>
+									Phoebe<span className="sr-only"> connected</span>
+								</>
+							) : (
+								<>
+									<span className="sr-only">Phoebe: </span>
+									{STATUS_LABELS[status]}
+								</>
+							)}
+						</>
+					)}
+				</p>
+			</div>
+			<ThemeToggle />
+		</div>
 	);
 }
