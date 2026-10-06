@@ -14,9 +14,12 @@ const NOT_AT_A_DESK = "This chat is not at a desk, so it has no brief and no not
 // emoji selector U+FE0F passes, and so do other blank characters that this list does not name.
 const HIDDEN_CHARACTERS = /[^\P{C}\n]|[\uFE00-\uFE0E\u{E0100}-\u{E01EF}]/u;
 
-/** A closing tag of `name` in `text` no longer closes: the text sits inside that tag in the system prompt. */
-function withoutClosingTag(text: string, name: string): string {
-	return text.replaceAll(new RegExp(`</\\s*${name}`, "gi"), `<\\/${name}`);
+/**
+ * A brief or a note sits inside a `<brief>` or `<notebook>` block of the system prompt. With this, the
+ * text can neither close its block nor open one that looks like the other.
+ */
+function withoutBlockTags(text: string): string {
+	return text.replaceAll(/<(\/?\s*(?:brief|notebook))/gi, "<\\$1");
 }
 
 /** `YYYY-MM-DD HH:MM` in Oladayo's time zone: a note often says when something was last checked. */
@@ -109,14 +112,13 @@ export function deskExtension(
 				const brief =
 					desk.brief === ""
 						? "No brief yet. Ask Oladayo what he wants from this desk when the request is not clear, and offer to draft the brief."
-						: withoutClosingTag(desk.brief, "brief");
+						: withoutBlockTags(desk.brief);
 				const notes = desks.notes(desk.id);
 				const notebook =
 					notes.length === 0
 						? "Empty."
 						: notes
-								// A note cannot close the block it is in.
-								.map((entry) => `- [id ${entry.id}, ${formatTime(entry.createdAt)}] ${withoutClosingTag(entry.text, "notebook")}`)
+								.map((entry) => `- [id ${entry.id}, ${formatTime(entry.createdAt)}] ${withoutBlockTags(entry.text)}`)
 								.join("\n");
 				return `This chat is at Oladayo's "${desk.name}" desk: a standing job. Each chat here is one visit, and Oladayo expects you to know the job and where it stands without a new explanation.
 
