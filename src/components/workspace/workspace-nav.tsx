@@ -2,7 +2,7 @@ import { ArrowDown01Icon, ArrowRight01Icon, GitBranchIcon, PlusSignIcon } from "
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useLoaderData, useNavigate, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
-import { useLayoutEffect, useState } from "react";
+import { type ReactNode, useLayoutEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/toast";
 import type { Desk } from "@/desks";
@@ -85,16 +85,19 @@ function NeedsYouDot() {
 
 /**
  * One chat in the tree. A branch sits right of its parent, behind one guide line per level.
- * `inset` is where the title of a root chat starts.
+ * `inset` is where the title of a root chat starts. `trailing` sits at the right end of the row,
+ * for a list that has room for more than the title.
  */
 export function ChatLink({
 	row,
 	inset = CHAT_INSET,
 	closesDrawer = false,
+	trailing,
 }: {
 	row: ChatTreeRow;
 	inset?: string;
 	closesDrawer?: boolean;
+	trailing?: ReactNode;
 }) {
 	const { chat, depth } = row;
 	// Only the open chat has a socket, so only it can show a run.
@@ -121,9 +124,11 @@ export function ChatLink({
 						<span className="sr-only">Branch: </span>
 					</>
 				)}
-				<span className="min-w-0 truncate">{chat.title}</span>
+				{/* The title takes the free room, so what trails it stays at the right end beside a dot. */}
+				<span className={cn("min-w-0 truncate", trailing !== undefined && "flex-1")}>{chat.title}</span>
 				{isRunning && <RunningDot />}
 				{needsYou && <NeedsYouDot />}
+				{trailing}
 			</Link>
 		</div>
 	);

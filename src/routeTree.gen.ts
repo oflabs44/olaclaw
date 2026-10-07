@@ -20,8 +20,7 @@ import { Route as PhoebeConnectionsRouteImport } from './routes/phoebe.connectio
 import { Route as PhoebeMemoryRouteImport } from './routes/phoebe.memory'
 import { Route as PhoebeModelsRouteImport } from './routes/phoebe.models'
 import { Route as DesksDeskIdIndexRouteImport } from './routes/desks.$deskId.index'
-import { Route as DesksDeskIdBriefRouteImport } from './routes/desks.$deskId.brief'
-import { Route as DesksDeskIdNotebookRouteImport } from './routes/desks.$deskId.notebook'
+import { Route as DesksDeskIdSettingsRouteImport } from './routes/desks.$deskId.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -78,14 +77,9 @@ const DesksDeskIdIndexRoute = DesksDeskIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DesksDeskIdRoute,
 } as any)
-const DesksDeskIdBriefRoute = DesksDeskIdBriefRouteImport.update({
-  id: '/brief',
-  path: '/brief',
-  getParentRoute: () => DesksDeskIdRoute,
-} as any)
-const DesksDeskIdNotebookRoute = DesksDeskIdNotebookRouteImport.update({
-  id: '/notebook',
-  path: '/notebook',
+const DesksDeskIdSettingsRoute = DesksDeskIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => DesksDeskIdRoute,
 } as any)
 
@@ -100,8 +94,7 @@ export interface FileRoutesByFullPath {
   '/phoebe/models': typeof PhoebeModelsRoute
   '/chats/': typeof ChatsIndexRoute
   '/phoebe/': typeof PhoebeIndexRoute
-  '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
-  '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
+  '/desks/$deskId/settings': typeof DesksDeskIdSettingsRoute
   '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -113,8 +106,7 @@ export interface FileRoutesByTo {
   '/phoebe/models': typeof PhoebeModelsRoute
   '/chats': typeof ChatsIndexRoute
   '/phoebe': typeof PhoebeIndexRoute
-  '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
-  '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
+  '/desks/$deskId/settings': typeof DesksDeskIdSettingsRoute
   '/desks/$deskId': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesById {
@@ -129,8 +121,7 @@ export interface FileRoutesById {
   '/phoebe/models': typeof PhoebeModelsRoute
   '/chats/': typeof ChatsIndexRoute
   '/phoebe/': typeof PhoebeIndexRoute
-  '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
-  '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
+  '/desks/$deskId/settings': typeof DesksDeskIdSettingsRoute
   '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -146,8 +137,7 @@ export interface FileRouteTypes {
     | '/phoebe/models'
     | '/chats/'
     | '/phoebe/'
-    | '/desks/$deskId/brief'
-    | '/desks/$deskId/notebook'
+    | '/desks/$deskId/settings'
     | '/desks/$deskId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -159,8 +149,7 @@ export interface FileRouteTypes {
     | '/phoebe/models'
     | '/chats'
     | '/phoebe'
-    | '/desks/$deskId/brief'
-    | '/desks/$deskId/notebook'
+    | '/desks/$deskId/settings'
     | '/desks/$deskId'
   id:
     | '__root__'
@@ -174,8 +163,7 @@ export interface FileRouteTypes {
     | '/phoebe/models'
     | '/chats/'
     | '/phoebe/'
-    | '/desks/$deskId/brief'
-    | '/desks/$deskId/notebook'
+    | '/desks/$deskId/settings'
     | '/desks/$deskId/'
   fileRoutesById: FileRoutesById
 }
@@ -267,18 +255,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DesksDeskIdIndexRouteImport
       parentRoute: typeof DesksDeskIdRoute
     }
-    '/desks/$deskId/brief': {
-      id: '/desks/$deskId/brief'
-      path: '/brief'
-      fullPath: '/desks/$deskId/brief'
-      preLoaderRoute: typeof DesksDeskIdBriefRouteImport
-      parentRoute: typeof DesksDeskIdRoute
-    }
-    '/desks/$deskId/notebook': {
-      id: '/desks/$deskId/notebook'
-      path: '/notebook'
-      fullPath: '/desks/$deskId/notebook'
-      preLoaderRoute: typeof DesksDeskIdNotebookRouteImport
+    '/desks/$deskId/settings': {
+      id: '/desks/$deskId/settings'
+      path: '/settings'
+      fullPath: '/desks/$deskId/settings'
+      preLoaderRoute: typeof DesksDeskIdSettingsRouteImport
       parentRoute: typeof DesksDeskIdRoute
     }
   }
@@ -302,14 +283,12 @@ const PhoebeRouteWithChildren =
   PhoebeRoute._addFileChildren(PhoebeRouteChildren)
 
 interface DesksDeskIdRouteChildren {
-  DesksDeskIdBriefRoute: typeof DesksDeskIdBriefRoute
-  DesksDeskIdNotebookRoute: typeof DesksDeskIdNotebookRoute
+  DesksDeskIdSettingsRoute: typeof DesksDeskIdSettingsRoute
   DesksDeskIdIndexRoute: typeof DesksDeskIdIndexRoute
 }
 
 const DesksDeskIdRouteChildren: DesksDeskIdRouteChildren = {
-  DesksDeskIdBriefRoute: DesksDeskIdBriefRoute,
-  DesksDeskIdNotebookRoute: DesksDeskIdNotebookRoute,
+  DesksDeskIdSettingsRoute: DesksDeskIdSettingsRoute,
   DesksDeskIdIndexRoute: DesksDeskIdIndexRoute,
 }
 
