@@ -136,21 +136,19 @@ export function ChatLink({
 
 /**
  * A desk and its chats, one level in. The name opens the desk's page and the group; the caret only
- * opens and closes the group. The group of the desk you are at stays open.
+ * opens and closes the group. Every group closes, the one you are at too: entering a desk opens it once.
  */
 function DeskGroup({
 	desk,
-	isActive,
 	needsYou,
 	closesDrawer,
 }: {
 	desk: Desk;
-	isActive: boolean;
 	needsYou: boolean;
 	closesDrawer: boolean;
 }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
-	const isOpen = useIsDeskFolderOpen(desk.id) || isActive;
+	const isOpen = useIsDeskFolderOpen(desk.id);
 	return (
 		<div className="grid gap-px">
 			<div className="group flex min-w-0 items-center rounded-sm has-[[data-status=active]]:bg-wash">
@@ -177,20 +175,16 @@ function DeskGroup({
 				>
 					<HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={1.75} />
 				</Link>
-				{/* The group of the desk you are at cannot close, so it has no caret. */}
-				{!isActive && (
-					<button
-						type="button"
-						aria-label={`${isOpen ? "Collapse" : "Expand"} ${desk.name}`}
-						aria-expanded={isOpen}
-						onClick={() => setDeskFolderOpen(desk.id, !isOpen)}
-						// With a mouse, an open desk shows its caret only under the pointer or the keyboard focus; its name is the way in.
-						// A touch screen has no hover, so the caret stays visible there.
-						className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-sm text-ink-faint transition-[color,opacity] hover:text-ink aria-expanded:opacity-0 group-hover:aria-expanded:opacity-100 focus-visible:aria-expanded:opacity-100 max-wide:aria-expanded:opacity-100 touch:aria-expanded:opacity-100 max-wide:size-11 touch:size-11"
-					>
-						<HugeiconsIcon icon={isOpen ? ArrowDown01Icon : ArrowRight01Icon} size={14} strokeWidth={1.75} />
-					</button>
-				)}
+				{/* The caret always shows: it says whether the group is open. */}
+				<button
+					type="button"
+					aria-label={`${isOpen ? "Collapse" : "Expand"} ${desk.name}`}
+					aria-expanded={isOpen}
+					onClick={() => setDeskFolderOpen(desk.id, !isOpen)}
+					className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-sm text-ink-faint transition-colors hover:text-ink max-wide:size-11 touch:size-11"
+				>
+					<HugeiconsIcon icon={isOpen ? ArrowDown01Icon : ArrowRight01Icon} size={14} strokeWidth={1.75} />
+				</button>
 			</div>
 			{isOpen && (
 				// Indent alone groups the chats under their desk.
@@ -213,6 +207,10 @@ function DeskGroups({ closesDrawer }: { closesDrawer: boolean }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
 	const approvals = useLoaderData({ from: "__root__", select: (data) => data.approvals });
 	const activeDeskId = useActiveDesk()?.id;
+	// Entering a desk opens its group, from any route into it. It can be closed again while you stay.
+	useLayoutEffect(() => {
+		if (activeDeskId !== undefined) setDeskFolderOpen(activeDeskId, true);
+	}, [activeDeskId]);
 	const waitingChatIds = new Set(
 		approvals.filter((approval) => approval.decision === undefined).map((approval) => approval.chatId),
 	);
@@ -222,7 +220,6 @@ function DeskGroups({ closesDrawer }: { closesDrawer: boolean }) {
 				<DeskGroup
 					key={desk.id}
 					desk={desk}
-					isActive={desk.id === activeDeskId}
 					needsYou={chats.some((chat) => chat.deskId === desk.id && waitingChatIds.has(chat.id))}
 					closesDrawer={closesDrawer}
 				/>
