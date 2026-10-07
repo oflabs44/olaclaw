@@ -180,28 +180,35 @@ function EventRow({ event, now }: { event: TodayEvent; now: number }) {
 				)}
 			</span>
 			<div className="min-w-0 flex-1">
-				<p className={cn("wide:truncate", waits ? "text-ink" : "text-ink-soft")}>
+				{/* A question is never cut: he answers what he reads. */}
+				<p className={cn(waits ? "text-ink" : "wide:truncate text-ink-soft")}>
 					{where}
 					{text()}
 				</p>
 				{waits && approval && (
 					<div className="mt-[0.4rem] mb-1 flex flex-wrap gap-1.5">
-						{/* Without a chat to read the detail in, the options are all he can get here. */}
-						{(!approval.hasMoreToRead || !chat) &&
+						{!approval.hasMoreToRead &&
 							approval.options.map((option) => (
 								<Button key={option} variant="quiet" className="h-7 px-3" onClick={() => decide(option)}>
 									{option}
 								</Button>
 							))}
 						{/* The detail or the code is in the chat, and Oladayo must read it before he answers. */}
-						{approval.hasMoreToRead && chat && (
+						{approval.hasMoreToRead && (
 							<Button
 								variant="quiet"
 								className="h-7 px-3"
 								nativeButton={false}
-								render={<Link to="/chats/$chatId" params={{ chatId: chat.id }} search />}
+								render={
+									chat ? (
+										<Link to="/chats/$chatId" params={{ chatId: chat.id }} search />
+									) : (
+										// The approvals pane shows the detail of a question whose session is no chat.
+										<Link to="/" search={(previous) => ({ ...previous, right: "open" })} />
+									)
+								}
 							>
-								Review in chat
+								{chat ? "Review in chat" : "Review"}
 							</Button>
 						)}
 					</div>
