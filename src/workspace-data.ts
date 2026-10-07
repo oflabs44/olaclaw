@@ -259,8 +259,9 @@ export const addMailbox = createServerFn({ method: "POST" })
 				backfill: backfill === "none" ? undefined : { since: backfill },
 			});
 		} catch (error) {
-			// Never the input: it holds the passwords.
-			console.error(`Cannot add the mailbox ${account.address} to ${tenant}`, error);
+			// Only the message, never the input or the error object: the input holds the passwords, and an
+			// error's cause can carry what the mail Worker saw.
+			console.error(`Cannot add the mailbox ${account.address} to ${tenant}: ${error instanceof Error ? error.message : String(error)}`);
 			if (error instanceof Error && STORED_BUT_INCOMPLETE.test(error.message)) {
 				return { status: "added", accountId: null, warning: error.message };
 			}
