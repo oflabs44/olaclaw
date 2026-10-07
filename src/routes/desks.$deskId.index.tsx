@@ -79,7 +79,7 @@ function StartChat({ desk }: { desk: Desk }) {
 						onChange={(event) => setDraft(event.target.value)}
 						onKeyDown={handleKeyDown}
 						disabled={isStarting}
-						placeholder={`Ask at the ${desk.name} desk`}
+						placeholder={`New chat at the ${desk.name} desk`}
 						autoComplete="off"
 						className="max-h-44 min-h-[2.3rem] px-4 pt-3 pb-1 text-[0.98rem] max-wide:px-3.5 max-wide:text-[16px]"
 					/>

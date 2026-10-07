@@ -167,6 +167,16 @@ function DeskGroup({
 					{/* An open group shows the dot on the chat that waits. */}
 					{needsYou && !isOpen && <NeedsYouDot />}
 				</Link>
+				{/* A chat at a desk starts on the desk page. Shown like the caret: under the pointer on wide, always on touch. */}
+				<Link
+					to="/desks/$deskId"
+					params={{ deskId: desk.id }}
+					search={linkSearch(closesDrawer)}
+					aria-label={`New chat at ${desk.name}`}
+					className="grid size-7 shrink-0 place-items-center rounded-sm text-ink-faint opacity-0 transition-[color,opacity] group-hover:opacity-100 hover:text-ink focus-visible:opacity-100 max-wide:opacity-100 touch:opacity-100 max-wide:size-11 touch:size-11"
+				>
+					<HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={1.75} />
+				</Link>
 				{/* The group of the desk you are at cannot close, so it has no caret. */}
 				{!isActive && (
 					<button
