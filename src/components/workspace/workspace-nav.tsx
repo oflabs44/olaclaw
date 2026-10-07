@@ -1,5 +1,6 @@
 import {
-	ArrowLeft01Icon,
+	ArrowDown01Icon,
+	ArrowRight01Icon,
 	Brain01Icon,
 	Calendar03Icon,
 	GitBranchIcon,
@@ -12,7 +13,7 @@ import {
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { Link, useLoaderData, useNavigate, useRouter } from "@tanstack/react-router";
 import { cn } from "cn";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import type { Desk } from "@/desks";
@@ -21,7 +22,8 @@ import type { WorkspaceSearch } from "@/routes/__root";
 import { createChat } from "@/workspace-data";
 import { type ChatTreeRow, chatTree } from "./chat-tree";
 import { useActiveDesk } from "./current-place";
-import { DeskIcon, DeskTile } from "./desk-icon";
+import { restoreOpenDeskFolders, setDeskFolderOpen, useIsDeskFolderOpen } from "./desk-folders";
+import { DeskIcon } from "./desk-icon";
 import { ThemeToggle } from "./theme-toggle";
 
 const navRowClass =
@@ -40,6 +42,9 @@ const groupActionClass = "h-7 px-2.5 text-[12.5px] touch:h-10";
 const chatLinkClass =
 	"flex w-full min-w-0 items-center gap-1.5 rounded px-[0.7rem] py-[0.3rem] text-[0.86rem] text-ink-soft " +
 	"transition-colors hover:text-ink data-[status=active]:text-ink touch:min-h-11 [&_svg]:text-ink-faint";
+
+// A desk's page in its folder: the size of a chat row, with the surface of a section when it is open.
+const folderRowClass = `${navRowClass} gap-1.5 py-[0.3rem] text-[0.86rem] text-ink`;
 
 const SECTIONS: { to: "/" | "/routines" | "/memory" | "/connections"; label: string; icon: IconSvgElement }[] = [
 	{ to: "/", label: "Today", icon: Home01Icon },
@@ -76,9 +81,44 @@ const CHAT_INDENT = 0.7;
 // How far one level of branches sits to the right of its parent, in rem.
 const BRANCH_INDENT = 0.9;
 
-/** One chat in the tree. A branch sits right of its parent, behind one guide line per level. */
-export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; closesDrawer?: boolean }) {
-	const { chat, depth } = row;
+// A folder holds its rows one level in, so a branch at a desk may go one level less deep than a
+// loose one. The deepest title then starts at the same place in both.
+const FOLDER_DEPTH = 1;
+const FOLDER_BRANCH_DEPTH = 2;
+
+function rowIndent(depth: number): string {
+	return `${CHAT_INDENT + depth * BRANCH_INDENT + (depth > 0 ? 0.65 : 0)}rem`;
+}
+
+/** One guide line per level, behind a row that sits `depth` levels in. */
+function GuideLines({ depth }: { depth: number }) {
+	return Array.from({ length: depth }, (_, level) => (
+		<span
+			key={level}
+			// The line starts in the gap above the row, so it reads as one line down the group.
+			className="absolute -top-0.5 bottom-0 w-px bg-line"
+			style={{ left: `${CHAT_INDENT + 0.25 + level * BRANCH_INDENT}rem` }}
+			aria-hidden="true"
+		/>
+	));
+}
+
+/**
+ * One chat in the tree. A branch sits right of its parent, behind one guide line per level.
+ * `folderDepth` moves the row in by the levels of the folder that holds it.
+ */
+export function ChatLink({
+	row,
+	folderDepth = 0,
+	closesDrawer = false,
+}: {
+	row: ChatTreeRow;
+	folderDepth?: number;
+	closesDrawer?: boolean;
+}) {
+	const { chat } = row;
+	const isBranch = row.depth > 0;
+	const depth = row.depth + folderDepth;
 	// Only the open chat has a socket, so only it can show a run.
 	const isRunning = usePiSession((state) => state.chatId === chat.id && state.running);
 	// The approvals pane of an open chat shows only that chat, so the row says when another chat waits.
@@ -89,23 +129,15 @@ export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; clos
 	});
 	return (
 		<div className="relative min-w-0">
-			{Array.from({ length: depth }, (_, level) => (
-				<span
-					key={level}
-					// The line starts in the gap above the row, so it reads as one line down the group.
-					className="absolute -top-0.5 bottom-0 w-px bg-line"
-					style={{ left: `${CHAT_INDENT + 0.25 + level * BRANCH_INDENT}rem` }}
-					aria-hidden="true"
-				/>
-			))}
+			<GuideLines depth={depth} />
 			<Link
 				to="/chats/$chatId"
 				params={{ chatId: chat.id }}
 				search={linkSearch(closesDrawer)}
 				className={chatLinkClass}
-				style={{ paddingLeft: `${CHAT_INDENT + depth * BRANCH_INDENT + (depth > 0 ? 0.65 : 0)}rem` }}
+				style={{ paddingLeft: rowIndent(depth) }}
 			>
-				{depth > 0 && (
+				{isBranch && (
 					<>
 						<HugeiconsIcon icon={GitBranchIcon} size={14} strokeWidth={1.5} className="shrink-0" />
 						<span className="sr-only">Branch: </span>
@@ -129,11 +161,105 @@ export function ChatLink({ row, closesDrawer = false }: { row: ChatTreeRow; clos
 	);
 }
 
-/** The desks, each in its own colour. A dot says that a chat at the desk waits for an answer. */
-function DeskLinks({ closesDrawer }: { closesDrawer: boolean }) {
+/**
+ * A desk as a folder: its pages and its chats, one level in. The name opens the desk's home and the
+ * folder; the chevron only opens and closes the folder. The folder of the desk you are at stays open.
+ */
+function DeskFolder({
+	desk,
+	isActive,
+	needsYou,
+	closesDrawer,
+}: {
+	desk: Desk;
+	isActive: boolean;
+	needsYou: boolean;
+	closesDrawer: boolean;
+}) {
+	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+	const isOpen = useIsDeskFolderOpen(desk.id) || isActive;
+	return (
+		<div className="grid gap-0.5">
+			<div className="flex min-w-0 items-center gap-0.5">
+				<Link
+					to="/desks/$deskId"
+					params={{ deskId: desk.id }}
+					search={linkSearch(closesDrawer)}
+					activeOptions={{ exact: true }}
+					onClick={() => setDeskFolderOpen(desk.id, true)}
+					// Not `sectionLinkClass`: that one paints every icon in soft ink.
+					className="flex min-w-0 flex-1 items-center gap-2.5 rounded px-[0.7rem] py-[0.42rem] text-[0.92rem] font-medium text-ink hover:bg-wash data-[status=active]:bg-wash-strong touch:min-h-11"
+				>
+					<DeskIcon icon={desk.icon} hue={desk.hue} />
+					<span className="min-w-0 truncate">{desk.name}</span>
+					{/* An open folder shows the dot on the chat that waits. */}
+					{needsYou && !isOpen && (
+						<>
+							<span className="ml-auto size-1.5 shrink-0 rounded-full bg-star" aria-hidden="true" />
+							<span className="sr-only">, needs you</span>
+						</>
+					)}
+				</Link>
+				<Button
+					icon
+					className="size-7 touch:size-11"
+					aria-label={`${isOpen ? "Collapse" : "Expand"} ${desk.name}`}
+					aria-expanded={isOpen}
+					disabled={isActive}
+					onClick={() => setDeskFolderOpen(desk.id, !isOpen)}
+				>
+					<HugeiconsIcon icon={isOpen ? ArrowDown01Icon : ArrowRight01Icon} size={16} strokeWidth={1.75} />
+				</Button>
+			</div>
+			{isOpen && (
+				<>
+					{DESK_PAGES.map((page) => (
+						<div key={page.to} className="relative min-w-0">
+							<GuideLines depth={FOLDER_DEPTH} />
+							<Link
+								to={page.to}
+								params={{ deskId: desk.id }}
+								search={linkSearch(closesDrawer)}
+								className={folderRowClass}
+								style={{ paddingLeft: rowIndent(FOLDER_DEPTH) }}
+							>
+								<HugeiconsIcon icon={page.icon} size={16} strokeWidth={1.5} />
+								{page.label}
+							</Link>
+						</div>
+					))}
+					{chatTree(
+						chats.filter((chat) => chat.deskId === desk.id),
+						FOLDER_BRANCH_DEPTH,
+					).map((row) => (
+						<ChatLink key={row.chat.id} row={row} folderDepth={FOLDER_DEPTH} closesDrawer={closesDrawer} />
+					))}
+					<div className="relative min-w-0">
+						<GuideLines depth={FOLDER_DEPTH} />
+						{/* A chat at a desk starts from the desk's home, with its first message. The folder row already marks that page, so this row does not. */}
+						<Link
+							to="/desks/$deskId"
+							params={{ deskId: desk.id }}
+							search={linkSearch(closesDrawer)}
+							className={cn(chatLinkClass, "data-[status=active]:text-ink-soft")}
+							style={{ paddingLeft: rowIndent(FOLDER_DEPTH) }}
+						>
+							<HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={1.75} className="shrink-0" />
+							New chat
+						</Link>
+					</div>
+				</>
+			)}
+		</div>
+	);
+}
+
+/** The desks, each a folder in its own colour. A dot on a closed folder says that a chat in it waits for an answer. */
+function DeskFolders({ closesDrawer }: { closesDrawer: boolean }) {
 	const desks = useLoaderData({ from: "__root__", select: (data) => data.desks });
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
 	const approvals = useLoaderData({ from: "__root__", select: (data) => data.approvals });
+	const activeDeskId = useActiveDesk()?.id;
 	const waitingChatIds = new Set(
 		approvals.filter((approval) => approval.decision === undefined).map((approval) => approval.chatId),
 	);
@@ -152,30 +278,20 @@ function DeskLinks({ closesDrawer }: { closesDrawer: boolean }) {
 				</Button>
 			</div>
 			{desks.map((desk) => (
-				<Link
+				<DeskFolder
 					key={desk.id}
-					to="/desks/$deskId"
-					params={{ deskId: desk.id }}
-					search={linkSearch(closesDrawer)}
-					// Not `sectionLinkClass`: that one paints every icon in soft ink.
-					className="flex w-full min-w-0 items-center gap-2.5 rounded px-[0.7rem] py-[0.42rem] text-[0.92rem] font-medium text-ink hover:bg-wash touch:min-h-11"
-				>
-					<DeskIcon icon={desk.icon} hue={desk.hue} />
-					<span className="min-w-0 truncate">{desk.name}</span>
-					{chats.some((chat) => chat.deskId === desk.id && waitingChatIds.has(chat.id)) && (
-						<>
-							<span className="ml-auto size-1.5 shrink-0 rounded-full bg-star" aria-hidden="true" />
-							<span className="sr-only">, needs you</span>
-						</>
-					)}
-				</Link>
+					desk={desk}
+					isActive={desk.id === activeDeskId}
+					needsYou={chats.some((chat) => chat.deskId === desk.id && waitingChatIds.has(chat.id))}
+					closesDrawer={closesDrawer}
+				/>
 			))}
 		</div>
 	);
 }
 
-/** The workspace outside the desks: the sections, the desks, and the chats that belong to no desk. */
-function HomeNav({ closesDrawer }: { closesDrawer: boolean }) {
+/** The tree: the sections, the desks as folders, and the chats that belong to no desk. */
+function NavTree({ closesDrawer }: { closesDrawer: boolean }) {
 	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
 	const isAyoConnected = useLoaderData({ from: "__root__", select: (data) => data.isAyoConnected });
 	const router = useRouter();
@@ -221,7 +337,7 @@ function HomeNav({ closesDrawer }: { closesDrawer: boolean }) {
 					</Link>
 				))}
 			</div>
-			<DeskLinks closesDrawer={closesDrawer} />
+			<DeskFolders closesDrawer={closesDrawer} />
 			<div className="grid gap-0.5">
 				<div className="mb-1.5 flex items-center justify-between pr-1">
 					<Link
@@ -245,74 +361,15 @@ function HomeNav({ closesDrawer }: { closesDrawer: boolean }) {
 	);
 }
 
-/** The workspace inside a desk: the way out, the desk's own pages, and only its chats. */
-function DeskNav({ desk, closesDrawer }: { desk: Desk; closesDrawer: boolean }) {
-	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
-	return (
-		<>
-			<div className="grid gap-3">
-				<Link
-					to="/"
-					search={linkSearch(closesDrawer)}
-					className="flex w-fit items-center gap-1 rounded px-[0.45rem] py-1 text-[0.8rem] font-medium text-ink-soft hover:text-ink touch:min-h-11"
-				>
-					<HugeiconsIcon icon={ArrowLeft01Icon} size={15} strokeWidth={1.75} />
-					Phoebe
-				</Link>
-				<Link
-					to="/desks/$deskId"
-					params={{ deskId: desk.id }}
-					search={linkSearch(closesDrawer)}
-					className="flex min-w-0 items-center gap-2.5 rounded px-[0.7rem] py-1 touch:min-h-11"
-				>
-					<DeskTile icon={desk.icon} hue={desk.hue} size={17} className="size-7 rounded-[8px]" />
-					<span className="min-w-0 truncate text-lg font-semibold">{desk.name}</span>
-				</Link>
-			</div>
-			<div className="grid gap-0.5">
-				{DESK_PAGES.map((page) => (
-					<Link
-						key={page.to}
-						to={page.to}
-						params={{ deskId: desk.id }}
-						search={linkSearch(closesDrawer)}
-						className={sectionLinkClass}
-					>
-						<HugeiconsIcon icon={page.icon} size={18} strokeWidth={1.5} />
-						{page.label}
-					</Link>
-				))}
-			</div>
-			<div className="grid gap-0.5">
-				<div className="mb-1.5 flex items-center justify-between pr-1">
-					<p className={groupHeadingClass}>Chats</p>
-					{/* A chat at a desk starts from the desk's home, with its first message. */}
-					<Button
-						variant="quiet"
-						className={groupActionClass}
-						nativeButton={false}
-						render={<Link to="/desks/$deskId" params={{ deskId: desk.id }} search={linkSearch(closesDrawer)} />}
-					>
-						<HugeiconsIcon icon={PlusSignIcon} size={16} strokeWidth={1.75} />
-						New chat
-					</Button>
-				</div>
-				{chatTree(chats.filter((chat) => chat.deskId === desk.id)).map((row) => (
-					<ChatLink key={row.chat.id} row={row} closesDrawer={closesDrawer} />
-				))}
-			</div>
-		</>
-	);
-}
-
 const statusItemClass = "flex items-center gap-1.5 whitespace-nowrap";
 
-/** The left pane: where you are. The same content fills the phone drawer. Inside a desk it is the desk's own. */
+/** The left pane: where you are. The same content fills the phone drawer. */
 export function WorkspaceNav({ closesDrawer = false }: { closesDrawer?: boolean }) {
-	const desk = useActiveDesk();
+	// A layout effect, so the stored folders open after hydration and before the first paint.
+	useLayoutEffect(restoreOpenDeskFolders, []);
 	return (
-		<nav aria-label={desk ? desk.name : "Workspace"} className="flex h-full flex-col gap-5">
-			{desk ? <DeskNav desk={desk} closesDrawer={closesDrawer} /> : <HomeNav closesDrawer={closesDrawer} />}
+		<nav aria-label="Workspace" className="flex h-full flex-col gap-5">
+			<NavTree closesDrawer={closesDrawer} />
 			<NavFooter closesDrawer={closesDrawer} />
 		</nav>
 	);

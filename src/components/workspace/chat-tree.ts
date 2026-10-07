@@ -8,8 +8,9 @@ const MAX_DEPTH = 3;
 /**
  * The chats in display order, each branch under its parent. Roots sort by the most recent use
  * anywhere in their tree, so a chat rises with its branches; branches sort newest first.
+ * A list that already sits some levels in passes a smaller `maxDepth`.
  */
-export function chatTree(chats: readonly ChatSummary[]): ChatTreeRow[] {
+export function chatTree(chats: readonly ChatSummary[], maxDepth = MAX_DEPTH): ChatTreeRow[] {
 	const knownIds = new Set(chats.map((chat) => chat.id));
 	const branchesByParent = new Map<string | null, ChatSummary[]>();
 	for (const chat of chats) {
@@ -23,7 +24,7 @@ export function chatTree(chats: readonly ChatSummary[]): ChatTreeRow[] {
 
 	const rows: ChatTreeRow[] = [];
 	function addTree(chat: ChatSummary, depth: number) {
-		rows.push({ chat, depth: Math.min(depth, MAX_DEPTH) });
+		rows.push({ chat, depth: Math.min(depth, maxDepth) });
 		const branches = branchesByParent.get(chat.id) ?? [];
 		for (const branch of branches.toSorted((a, b) => b.updatedAt - a.updatedAt)) addTree(branch, depth + 1);
 	}

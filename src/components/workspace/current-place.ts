@@ -12,7 +12,7 @@ export function useOpenChatTitle(): string | undefined {
 
 /**
  * The desk the route is in: one of the desk's pages, or a chat that belongs to it. The workspace then
- * takes the desk's colours and shows the desk's own navigation.
+ * takes the desk's colours, and the nav keeps the desk's folder open.
  */
 export function useActiveDesk(): Desk | undefined {
 	const deskId = useParams({ strict: false, select: (params) => params.deskId });
