@@ -21,6 +21,7 @@ import { Route as PhoebeMemoryRouteImport } from './routes/phoebe.memory'
 import { Route as PhoebeModelsRouteImport } from './routes/phoebe.models'
 import { Route as DesksDeskIdIndexRouteImport } from './routes/desks.$deskId.index'
 import { Route as DesksDeskIdSettingsRouteImport } from './routes/desks.$deskId.settings'
+import { Route as PhoebeConnectionsNewMailboxRouteImport } from './routes/phoebe.connections_.new-mailbox'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,12 @@ const DesksDeskIdSettingsRoute = DesksDeskIdSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => DesksDeskIdRoute,
 } as any)
+const PhoebeConnectionsNewMailboxRoute =
+  PhoebeConnectionsNewMailboxRouteImport.update({
+    id: '/connections_/new-mailbox',
+    path: '/connections/new-mailbox',
+    getParentRoute: () => PhoebeRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/chats/': typeof ChatsIndexRoute
   '/phoebe/': typeof PhoebeIndexRoute
   '/desks/$deskId/settings': typeof DesksDeskIdSettingsRoute
+  '/phoebe/connections/new-mailbox': typeof PhoebeConnectionsNewMailboxRoute
   '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -107,6 +115,7 @@ export interface FileRoutesByTo {
   '/chats': typeof ChatsIndexRoute
   '/phoebe': typeof PhoebeIndexRoute
   '/desks/$deskId/settings': typeof DesksDeskIdSettingsRoute
+  '/phoebe/connections/new-mailbox': typeof PhoebeConnectionsNewMailboxRoute
   '/desks/$deskId': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesById {
@@ -122,6 +131,7 @@ export interface FileRoutesById {
   '/chats/': typeof ChatsIndexRoute
   '/phoebe/': typeof PhoebeIndexRoute
   '/desks/$deskId/settings': typeof DesksDeskIdSettingsRoute
+  '/phoebe/connections_/new-mailbox': typeof PhoebeConnectionsNewMailboxRoute
   '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/chats/'
     | '/phoebe/'
     | '/desks/$deskId/settings'
+    | '/phoebe/connections/new-mailbox'
     | '/desks/$deskId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/chats'
     | '/phoebe'
     | '/desks/$deskId/settings'
+    | '/phoebe/connections/new-mailbox'
     | '/desks/$deskId'
   id:
     | '__root__'
@@ -164,6 +176,7 @@ export interface FileRouteTypes {
     | '/chats/'
     | '/phoebe/'
     | '/desks/$deskId/settings'
+    | '/phoebe/connections_/new-mailbox'
     | '/desks/$deskId/'
   fileRoutesById: FileRoutesById
 }
@@ -262,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DesksDeskIdSettingsRouteImport
       parentRoute: typeof DesksDeskIdRoute
     }
+    '/phoebe/connections_/new-mailbox': {
+      id: '/phoebe/connections_/new-mailbox'
+      path: '/connections/new-mailbox'
+      fullPath: '/phoebe/connections/new-mailbox'
+      preLoaderRoute: typeof PhoebeConnectionsNewMailboxRouteImport
+      parentRoute: typeof PhoebeRoute
+    }
   }
 }
 
@@ -270,6 +290,7 @@ interface PhoebeRouteChildren {
   PhoebeMemoryRoute: typeof PhoebeMemoryRoute
   PhoebeModelsRoute: typeof PhoebeModelsRoute
   PhoebeIndexRoute: typeof PhoebeIndexRoute
+  PhoebeConnectionsNewMailboxRoute: typeof PhoebeConnectionsNewMailboxRoute
 }
 
 const PhoebeRouteChildren: PhoebeRouteChildren = {
@@ -277,6 +298,7 @@ const PhoebeRouteChildren: PhoebeRouteChildren = {
   PhoebeMemoryRoute: PhoebeMemoryRoute,
   PhoebeModelsRoute: PhoebeModelsRoute,
   PhoebeIndexRoute: PhoebeIndexRoute,
+  PhoebeConnectionsNewMailboxRoute: PhoebeConnectionsNewMailboxRoute,
 }
 
 const PhoebeRouteWithChildren =

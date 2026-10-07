@@ -1,4 +1,4 @@
-import { exports } from "cloudflare:workers";
+import { env, exports } from "cloudflare:workers";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { notFound } from "@tanstack/react-router";
@@ -161,3 +161,109 @@ export const connectAyo = createServerFn({ method: "POST" }).handler(
 export const getToday = createServerFn().handler((): Promise<TodayEvent[]> => userAgent().listToday());
 
 export const getMemories = createServerFn().handler((): Promise<MemoryEntry[]> => userAgent().listMemories());
+
+export const MAIL_TENANTS = ["personal", "getu"] as const;
+export type MailTenant = (typeof MAIL_TENANTS)[number];
+export const MAIL_TENANT_NAMES: Record<MailTenant, string> = { personal: "Personal", getu: "GeTu" };
+
+export const MAIL_SECURITIES = ["tls", "starttls"] as const;
+
+export type Mailbox = {
+	readonly tenant: MailTenant;
+	readonly address: string;
+	readonly label: string | null;
+	readonly senderName: string | null;
+};
+
+/** The mail server that did not accept the login. "refused": it said no; "failed": it gave no such answer. */
+export type FailedMailLogin = {
+	readonly status: "refused" | "failed";
+	readonly server: "imap" | "smtp";
+	/** The server's text, or the error's. */
+	readonly message: string;
+};
+
+/** `warning` is set when the mailbox is stored but its polling or its history did not start; mycloud's admin tool repairs that. */
+export type AddMailboxResult =
+	| { readonly status: "added"; readonly accountId: string | null; readonly warning?: string }
+	| FailedMailLogin;
+
+// mycloud throws these after it stored the account (accounts.ts, addAccount). The text is the only signal it gives.
+const STORED_BUT_INCOMPLETE = /^The account of .* is (stored|added)/;
+
+const mailServerLogin = z.object({
+	host: z.string().trim().min(1),
+	port: z.number().int().min(1).max(65535),
+	security: z.enum(MAIL_SECURITIES),
+	user: z.string().trim().min(1),
+	password: z.string().min(1),
+});
+
+// The part of mycloud's MailAdmin that the app calls. The generated binding type does not know the class.
+interface MailAdminCalls {
+	addAccount(
+		account: { address: string; imap: z.infer<typeof mailServerLogin>; smtp: z.infer<typeof mailServerLogin> },
+		options?: { label?: string; senderName?: string; backfill?: { since: string } },
+	): Promise<AddMailboxResult>;
+	listAccounts(): Promise<{ address: string; label: string | null; senderName: string | null }[]>;
+}
+
+function mailAdmin(tenant: MailTenant) {
+	return (tenant === "getu" ? env.MAIL_ADMIN_GETU : env.MAIL_ADMIN) as unknown as MailAdminCalls;
+}
+
+/** The mailboxes of both mail systems. `unreadTenants` names a system that did not answer; its mailboxes are missing. */
+export const getMailboxes = createServerFn().handler(
+	async (): Promise<{ mailboxes: Mailbox[]; unreadTenants: MailTenant[] }> => {
+		const unreadTenants: MailTenant[] = [];
+		const mailboxesOfTenants = await Promise.all(
+			MAIL_TENANTS.map(async (tenant): Promise<Mailbox[]> => {
+				try {
+					const accounts = await mailAdmin(tenant).listAccounts();
+					return accounts
+						.map(({ address, label, senderName }) => ({ tenant, address, label, senderName }))
+						.sort((a, b) => a.address.localeCompare(b.address));
+				} catch (error) {
+					console.error(`Cannot read the mailboxes of ${tenant}`, error);
+					unreadTenants.push(tenant);
+					return [];
+				}
+			}),
+		);
+		return { mailboxes: mailboxesOfTenants.flat(), unreadTenants };
+	},
+);
+
+/**
+ * Adds a mailbox to a mail system, which checks both logins first. A login that the server did not
+ * accept comes back as a result and stores nothing. The passwords go to the binding only.
+ */
+export const addMailbox = createServerFn({ method: "POST" })
+	.validator(
+		z.object({
+			tenant: z.enum(MAIL_TENANTS),
+			address: z.email().toLowerCase(),
+			label: z.string().trim().optional(),
+			senderName: z.string().trim().optional(),
+			imap: mailServerLogin,
+			smtp: mailServerLogin,
+			/** How much history to fetch: none, all of it, or the mail from a day on. */
+			backfill: z.union([z.enum(["none", "all"]), z.iso.date()]),
+		}),
+	)
+	.handler(async ({ data: { tenant, label, senderName, backfill, ...account } }): Promise<AddMailboxResult> => {
+		try {
+			return await mailAdmin(tenant).addAccount(account, {
+				label: label || undefined,
+				senderName: senderName || undefined,
+				backfill: backfill === "none" ? undefined : { since: backfill },
+			});
+		} catch (error) {
+			// Never the input: it holds the passwords.
+			console.error(`Cannot add the mailbox ${account.address} to ${tenant}`, error);
+			if (error instanceof Error && STORED_BUT_INCOMPLETE.test(error.message)) {
+				return { status: "added", accountId: null, warning: error.message };
+			}
+			throw error;
+		}
+	});
