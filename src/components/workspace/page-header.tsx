@@ -47,24 +47,25 @@ function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode 
 
 /**
  * The card header on wide screens and the app bar on phones: panel toggles around the title.
+ * A page that shows its own title in its content passes none.
  * `subtitle` is a small line under the title, for example where a branch comes from.
  * `status` sits after the title, for example the chat's "Working" indicator.
  */
-export function PageHeader({ title, subtitle, status }: { title: string; subtitle?: ReactNode; status?: ReactNode }) {
+export function PageHeader({ title, subtitle, status }: { title?: string; subtitle?: ReactNode; status?: ReactNode }) {
 	const needsYouCount = useLoaderData({
 		from: "__root__",
 		select: (data) => data.approvals.filter((approval) => approval.decision === undefined).length,
 	});
 
 	return (
-		<header className="relative flex items-center gap-2.5 border-b border-line px-3 py-[0.55rem] max-wide:bg-paper max-wide:px-2 max-wide:py-[0.35rem] max-wide:pt-[max(0.35rem,env(safe-area-inset-top))]">
+		<header className="flex items-center gap-2.5 px-3 py-[0.55rem] max-wide:gap-1 max-wide:bg-paper max-wide:px-2 max-wide:py-[0.35rem] max-wide:pt-[max(0.35rem,env(safe-area-inset-top))]">
 			<PanelToggle side="left">
 				<HugeiconsIcon icon={SidebarLeft01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
 				<HugeiconsIcon icon={BubbleChatIcon} size={20} strokeWidth={1.5} className="wide:hidden" />
 			</PanelToggle>
-			<div className="min-w-0 flex-1 pl-1 max-wide:pl-0 max-wide:text-center">
-				<h1 className="truncate text-lg font-semibold max-wide:text-[16px]">{title}</h1>
-				{subtitle && <p className="truncate text-sm leading-tight text-ink-soft">{subtitle}</p>}
+			<div className="min-w-0 flex-1 pl-1 max-wide:pl-0">
+				{title && <h1 className="truncate text-[18px] font-semibold">{title}</h1>}
+				{subtitle && <p className="truncate text-[13px] leading-tight text-ink-soft">{subtitle}</p>}
 			</div>
 			{status}
 			<PanelToggle side="right">

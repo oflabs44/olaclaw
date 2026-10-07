@@ -1,3 +1,5 @@
+import type { Events } from "./events";
+
 export type ApprovalRecord = {
 	/** The id of the `ask` or `desk_propose_brief` tool call that waits for the decision. */
 	readonly callId: string;
@@ -57,9 +59,11 @@ function toRecord(row: ApprovalRow): ApprovalRecord {
 export class Approvals {
 	readonly #sql: SqlStorage;
 	readonly #waiters = new Map<string, (decision: string) => void>();
+	readonly #events: Events;
 
-	constructor(sql: SqlStorage) {
+	constructor(sql: SqlStorage, events: Events) {
 		this.#sql = sql;
+		this.#events = events;
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS approval (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, call_id TEXT NOT NULL UNIQUE, question TEXT NOT NULL, detail TEXT NULL, options TEXT NOT NULL, decision TEXT NULL, created_at INTEGER NOT NULL, decided_at INTEGER NULL)",
 		);
@@ -124,6 +128,7 @@ export class Approvals {
 		if (text.length === 0 || text.length > MAX_ANSWER_LENGTH) throw new Error("An answer is 1 to 500 characters");
 		if (approval.decision !== null) return;
 		this.#sql.exec("UPDATE approval SET decision = ?, decided_at = ? WHERE call_id = ?", text, Date.now(), callId);
+		this.#events.record("approval_decided", { sessionId: approval.sessionId, text, callId });
 		this.#waiters.get(callId)?.(text);
 	}
 

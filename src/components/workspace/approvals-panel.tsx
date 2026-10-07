@@ -8,29 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
+import { formatWhen } from "@/lib/format-when";
 import { ayoExecuteParts } from "@/protocol";
 import { type Approval, type DecidedApproval, decideApproval, getDecidedApproval } from "@/workspace-data";
 import type { WorkspaceSearch } from "@/routes/__root";
 import { useIsPhone } from "./panels";
-
-const TIME_ZONE = "Europe/Berlin";
-
-/** The time for today, the date for a day before, with the year for another year. A fixed locale and zone, so the server render and the hydrating client agree. */
-function formatWhen(epochMilliseconds: number): string {
-	const date = new Date(epochMilliseconds);
-	const day = (value: Date) => value.toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
-	if (day(date) === day(new Date())) {
-		return date.toLocaleTimeString("en-GB", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit" });
-	}
-	// The year only when it is not this one: the pane is narrow.
-	const year = (value: Date) => value.toLocaleDateString("en-GB", { timeZone: TIME_ZONE, year: "numeric" });
-	return date.toLocaleDateString("en-GB", {
-		timeZone: TIME_ZONE,
-		day: "numeric",
-		month: "short",
-		year: year(date) === year(new Date()) ? undefined : "numeric",
-	});
-}
 
 /** What Oladayo chose: the option as Phoebe wrote it, or his own words in quotation marks. */
 function choiceText(options: readonly string[], decision: string): string {
@@ -125,7 +107,7 @@ function DecidedRow({
 			>
 				<span className="flex items-baseline justify-between gap-3">
 					{isCode ? (
-						<span className="min-w-0 font-mono text-[0.8rem] leading-snug [overflow-wrap:anywhere]">
+						<span className="min-w-0 leading-snug font-medium [overflow-wrap:anywhere]">
 							{calls.length > 0 ? calls.join(", ") : "Code in Ayo"}
 						</span>
 					) : (

@@ -1,5 +1,6 @@
 import type { Conversation, EntryId, ModelRef } from "@earendil-works/pi-durable";
 import { type PiHarness, type PiSessionId, ROOT_SESSION } from "agents/harness/pi";
+import type { Events } from "./events";
 import { DEFAULT_MODEL, type ModelId } from "./models";
 
 export type ChatSummary = {
@@ -70,11 +71,18 @@ export class Chats {
 	readonly #sql: SqlStorage;
 	readonly #harness: PiHarness;
 	readonly #nameChat: (firstMessage: string) => Promise<string>;
+	readonly #events: Events;
 
-	constructor(sql: SqlStorage, harness: PiHarness, nameChat: (firstMessage: string) => Promise<string>) {
+	constructor(
+		sql: SqlStorage,
+		harness: PiHarness,
+		nameChat: (firstMessage: string) => Promise<string>,
+		events: Events,
+	) {
 		this.#sql = sql;
 		this.#harness = harness;
 		this.#nameChat = nameChat;
+		this.#events = events;
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS chat (session_id TEXT PRIMARY KEY, title TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 		);
@@ -257,10 +265,14 @@ export class Chats {
 
 	/**
 	 * Marks the chat as recently used, names it from its first message, and keeps the URLs it gives.
+	 * The first message also goes to the event log, as the start of the chat.
 	 * `givesUrl` limits those URLs when Oladayo did not write the text.
 	 */
 	recordSubmit(session: PiSessionId, text: string, givesUrl: (url: string) => boolean = () => true): void {
 		const provisionalTitle = titleFromText(text);
+		// A chat has no title until its first message; the root chat was named at creation, so its start is not logged.
+		const isFirstMessage =
+			this.#sql.exec("SELECT 1 FROM chat WHERE session_id = ? AND title IS NULL", session).toArray().length > 0;
 		const named = this.#sql.exec(
 			"UPDATE chat SET title = COALESCE(title, ?), updated_at = ? WHERE session_id = ? RETURNING title",
 			provisionalTitle,
@@ -280,6 +292,9 @@ export class Chats {
 					);
 				})
 				.catch((error) => console.error(`Cannot name chat ${session}`, error));
+		}
+		if (isFirstMessage) {
+			this.#events.record("chat_started", { deskId: this.deskOf(session), sessionId: session, text: provisionalTitle });
 		}
 		for (const url of urlsIn(text).filter(givesUrl)) {
 			this.#sql.exec("INSERT OR IGNORE INTO given_url (session_id, url) VALUES (?, ?)", session, url);

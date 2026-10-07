@@ -11,8 +11,8 @@ export function useOpenChatTitle(): string | undefined {
 }
 
 /**
- * The desk the route is in: one of the desk's pages, or a chat that belongs to it. The workspace then
- * takes the desk's colours, and the nav keeps the desk's folder open.
+ * The desk the route is in: one of the desk's pages, or a chat that belongs to it. The nav keeps that
+ * desk's group open.
  */
 export function useActiveDesk(): Desk | undefined {
 	const deskId = useParams({ strict: false, select: (params) => params.deskId });
@@ -29,7 +29,10 @@ export function useActiveDesk(): Desk | undefined {
 
 /** Where the user is, for the omni trigger: "Chats / <chat title>", "<desk> / <page or chat>", or only the section. */
 export function useCurrentPlace(): { section: string; view?: string } {
-	const section = useMatches({ select: (matches) => matches.at(-1)?.staticData.section });
+	// The deepest route that names a section: a tab of the Phoebe page takes the page's name.
+	const section = useMatches({
+		select: (matches) => matches.findLast((match) => match.staticData.section !== undefined)?.staticData.section,
+	});
 	const chatTitle = useOpenChatTitle();
 	const desk = useActiveDesk();
 	if (desk) return { section: desk.name, view: chatTitle ?? section };

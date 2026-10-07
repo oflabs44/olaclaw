@@ -22,10 +22,10 @@ export function Omnibox() {
 
 	const destinations: Destination[] = [
 		{ key: "today", label: "Today", group: "Go to", to: "/" },
-		{ key: "routines", label: "Routines", group: "Go to", to: "/routines" },
-		{ key: "memory", label: "Memory", group: "Go to", to: "/memory" },
-		{ key: "connections", label: "Connections", group: "Go to", to: "/connections" },
 		{ key: "chats", label: "All chats", group: "Go to", to: "/chats" },
+		{ key: "memory", label: "Memory", group: "Phoebe", to: "/phoebe/memory" },
+		{ key: "connections", label: "Connections", group: "Phoebe", to: "/phoebe/connections" },
+		{ key: "models", label: "Models", group: "Phoebe", to: "/phoebe/models" },
 		...desks.map((desk) => ({
 			key: `desk-${desk.id}`,
 			label: desk.name,
@@ -78,7 +78,7 @@ export function Omnibox() {
 					{matches.map((destination, index) => (
 						<li key={destination.key}>
 							{(index === 0 || matches[index - 1].group !== destination.group) && (
-								<p className="px-3 pt-2 pb-1 text-sm font-semibold text-ink-faint">{destination.group}</p>
+								<p className="px-3 pt-2 pb-1 text-[13px] text-ink-soft">{destination.group}</p>
 							)}
 							<Link
 								to={destination.to}

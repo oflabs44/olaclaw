@@ -3,14 +3,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { notFound } from "@tanstack/react-router";
 import { z } from "zod";
+import type { TodayEvent } from "./agent";
 import type { ChatSummary } from "./chats";
 import { DESK_HUES, DESK_ICONS, MAX_DESK_BRIEF_LENGTH, MAX_DESK_NAME_LENGTH } from "./desk-look";
 import type { Desk, DeskNote } from "./desks";
 import type { MemoryEntry } from "./memory";
 import { AGENT_NAME } from "./protocol";
 
-// Chats, memories, and approvals come from the user's agent object. The other functions are typed placeholders that return
-// what exists today; wiring a feature later changes the function body.
+// Everything here comes from the user's agent object.
 
 /** A decision the assistant asked for, shown in the approvals panel. It waits until `decision` is set. */
 export type Approval = {
@@ -35,10 +35,6 @@ export type DecidedApproval = Approval & {
 	readonly decision: string;
 	readonly decidedAt: number;
 };
-
-export type Routine = { readonly id: string; readonly title: string; readonly schedule: string };
-
-export type TodayItem = { readonly id: string; readonly title: string; readonly when: string };
 
 function userAgent() {
 	return exports.PiAgent.getByName(AGENT_NAME);
@@ -161,8 +157,7 @@ export const connectAyo = createServerFn({ method: "POST" }).handler(
 	(): Promise<string | null> => userAgent().connectAyo(new URL(getRequest().url).origin),
 );
 
-export const getToday = createServerFn().handler((): TodayItem[] => []);
-
-export const getRoutines = createServerFn().handler((): Routine[] => []);
+/** What happened in the last 7 days, newest first, and every question that still waits. */
+export const getToday = createServerFn().handler((): Promise<TodayEvent[]> => userAgent().listToday());
 
 export const getMemories = createServerFn().handler((): Promise<MemoryEntry[]> => userAgent().listMemories());

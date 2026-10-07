@@ -6,9 +6,10 @@ import { Conversation } from "@/components/chat/conversation";
 import { SubagentPaneContext } from "@/components/chat/subagent-card";
 import { parentTitle } from "@/components/workspace/chat-tree";
 import { useActiveDesk } from "@/components/workspace/current-place";
+import { DeskStrip } from "@/components/workspace/desk-strip";
 import { PageHeader } from "@/components/workspace/page-header";
 import { PiSessionProvider, usePiSession } from "@/pi-session";
-import { getChat } from "@/workspace-data";
+import { getChat, getDesk } from "@/workspace-data";
 
 // The subagent whose transcript is open: the conversation id that its `delegate` call reports.
 const chatSearch = z.object({
@@ -18,15 +19,27 @@ const chatSearch = z.object({
 export const Route = createFileRoute("/chats/$chatId")({
 	staticData: { section: "Chats" },
 	validateSearch: chatSearch,
-	loader: ({ params }) => getChat({ data: { chatId: params.chatId } }),
+	loader: async ({ params }) => {
+		const chat = await getChat({ data: { chatId: params.chatId } });
+		// The strip of a chat at a desk shows the desk's newest note. A chat still opens without it.
+		const desk =
+			chat.deskId === null
+				? undefined
+				: await getDesk({ data: { deskId: chat.deskId } }).catch((error: unknown) => {
+						console.error(`Cannot read desk ${chat.deskId} for the strip`, error);
+						return undefined;
+					});
+		return { ...chat, latestDeskNote: desk?.notes.at(-1)?.text };
+	},
 	component: ChatPage,
 });
 
 function WorkingIndicator() {
 	return (
-		<span className="inline-flex items-center gap-2 text-[0.85rem] font-semibold text-primary max-wide:absolute max-wide:top-[calc(100%+2px)] max-wide:left-1/2 max-wide:-translate-x-1/2 max-wide:text-[11.5px]">
-			<span className="size-[0.4rem] animate-stamp rounded-full bg-primary" aria-hidden="true" />
-			Working
+		<span className="inline-flex shrink-0 items-center gap-2 text-[13px] text-ink-soft max-wide:px-2">
+			<span className="size-1.5 animate-stamp rounded-full bg-ink-soft" aria-hidden="true" />
+			{/* A phone has room for the dot only. */}
+			<span className="max-wide:sr-only">Working</span>
 		</span>
 	);
 }
@@ -56,38 +69,33 @@ function ChatPage() {
 	);
 }
 
-const subtitleLinkClass = "underline decoration-line-strong underline-offset-2 hover:text-ink";
-
 function ChatHeader() {
 	const chat = Route.useLoaderData();
 	const parent = useLoaderData({ from: "__root__", select: (data) => parentTitle(chat, data.chats) });
 	const desk = useActiveDesk();
 	const isRunning = usePiSession((state) => state.running);
 	return (
-		<PageHeader
-			title={chat.title}
-			subtitle={
-				(desk || chat.parentId !== null) && (
-					<>
-						{/* On a phone this is the way back to the desk: the left pane is a closed drawer there. */}
-						{desk && (
-							<Link to="/desks/$deskId" params={{ deskId: desk.id }} search className={subtitleLinkClass}>
-								{desk.name}
+		<>
+			<PageHeader
+				title={chat.title}
+				subtitle={
+					chat.parentId !== null && (
+						<>
+							from{" "}
+							<Link
+								to="/chats/$chatId"
+								params={{ chatId: chat.parentId }}
+								search
+								className="underline decoration-line-strong underline-offset-2 hover:text-ink"
+							>
+								{parent ?? "a chat"}
 							</Link>
-						)}
-						{desk && chat.parentId !== null && " · "}
-						{chat.parentId !== null && (
-							<>
-								from{" "}
-								<Link to="/chats/$chatId" params={{ chatId: chat.parentId }} search className={subtitleLinkClass}>
-									{parent ?? "a chat"}
-								</Link>
-							</>
-						)}
-					</>
-				)
-			}
-			status={isRunning && <WorkingIndicator />}
-		/>
+						</>
+					)
+				}
+				status={isRunning && <WorkingIndicator />}
+			/>
+			{desk && <DeskStrip desk={desk} latestNote={chat.latestDeskNote} />}
+		</>
 	);
 }

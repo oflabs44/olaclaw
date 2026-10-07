@@ -27,7 +27,7 @@ function SidePane({
 				!isOpen && "opacity-0",
 			)}
 		>
-			<div style={{ width }} className="h-full overflow-y-auto px-1.5 pt-2.5 pb-3.5">
+			<div style={{ width }} className="h-full">
 				{children}
 			</div>
 		</aside>
@@ -42,9 +42,7 @@ export function LeftPane() {
 				<WorkspaceNav />
 			</SidePane>
 			<Sheet swipeDirection="left" open={panel.isPhone && panel.isOpen} onOpenChange={panel.setOpen}>
-				<SheetContent
-					className="px-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
-				>
+				<SheetContent className="pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
 					<SheetTitle className="sr-only">Workspace</SheetTitle>
 					<WorkspaceNav closesDrawer />
 				</SheetContent>

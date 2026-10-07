@@ -1,4 +1,5 @@
 import type { DeskHue, DeskIconName } from "./desk-look";
+import type { Events } from "./events";
 
 export type Desk = {
 	readonly id: string;
@@ -31,9 +32,11 @@ function toDesk(row: DeskRow): Desk {
  */
 export class Desks {
 	readonly #sql: SqlStorage;
+	readonly #events: Events;
 
-	constructor(sql: SqlStorage) {
+	constructor(sql: SqlStorage, events: Events) {
 		this.#sql = sql;
+		this.#events = events;
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS desk (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL CHECK(length(trim(name)) > 0), brief TEXT NOT NULL, hue TEXT NOT NULL, icon TEXT NOT NULL, created_at INTEGER NOT NULL)",
 		);
@@ -66,11 +69,14 @@ export class Desks {
 				Date.now(),
 			)
 			.one();
-		return toDesk(row);
+		const desk = toDesk(row);
+		this.#events.record("desk_created", { deskId: desk.id, text: desk.name });
+		return desk;
 	}
 
 	/** False when no desk has this id. */
 	update(id: string, input: DeskInput): boolean {
+		const before = this.find(id);
 		const cursor = this.#sql.exec(
 			"UPDATE desk SET name = ?, brief = ?, hue = ?, icon = ? WHERE id = ?",
 			input.name,
@@ -79,11 +85,16 @@ export class Desks {
 			input.icon,
 			id,
 		);
+		if (before && before.brief !== input.brief) this.#events.record("brief_changed", { deskId: id, text: input.name });
 		return cursor.rowsWritten > 0;
 	}
 
 	setBrief(id: string, brief: string): void {
-		this.#sql.exec("UPDATE desk SET brief = ? WHERE id = ?", brief, id);
+		// A rerun of the tool call saves the same text again, which is no change.
+		const changed = this.#sql
+			.exec<{ name: string }>("UPDATE desk SET brief = ? WHERE id = ? AND brief <> ? RETURNING name", brief, id, brief)
+			.toArray()[0];
+		if (changed) this.#events.record("brief_changed", { deskId: id, text: changed.name });
 	}
 
 	/** The desk's notebook, oldest first, so the prompt stays stable as notes are added. */
@@ -98,14 +109,16 @@ export class Desks {
 	}
 
 	addNote(deskId: string, text: string): number {
-		return this.#sql
+		const { id } = this.#sql
 			.exec<{ id: number }>(
 				"INSERT INTO desk_note (desk_id, text, created_at) VALUES (?, ?, ?) RETURNING id",
 				deskId,
 				text,
 				Date.now(),
 			)
-			.one().id;
+			.one();
+		this.#events.record("note_added", { deskId, text });
+		return id;
 	}
 
 	/** False when the desk has no note with this id. A note of another desk stays. */

@@ -10,13 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ConnectionsRouteImport } from './routes/connections'
-import { Route as MemoryRouteImport } from './routes/memory'
-import { Route as RoutinesRouteImport } from './routes/routines'
+import { Route as PhoebeRouteImport } from './routes/phoebe'
 import { Route as ChatsIndexRouteImport } from './routes/chats.index'
 import { Route as ChatsChatIdRouteImport } from './routes/chats.$chatId'
 import { Route as DesksDeskIdRouteImport } from './routes/desks.$deskId'
 import { Route as DesksNewRouteImport } from './routes/desks.new'
+import { Route as PhoebeIndexRouteImport } from './routes/phoebe.index'
+import { Route as PhoebeConnectionsRouteImport } from './routes/phoebe.connections'
+import { Route as PhoebeMemoryRouteImport } from './routes/phoebe.memory'
+import { Route as PhoebeModelsRouteImport } from './routes/phoebe.models'
 import { Route as DesksDeskIdIndexRouteImport } from './routes/desks.$deskId.index'
 import { Route as DesksDeskIdBriefRouteImport } from './routes/desks.$deskId.brief'
 import { Route as DesksDeskIdNotebookRouteImport } from './routes/desks.$deskId.notebook'
@@ -26,19 +28,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConnectionsRoute = ConnectionsRouteImport.update({
-  id: '/connections',
-  path: '/connections',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MemoryRoute = MemoryRouteImport.update({
-  id: '/memory',
-  path: '/memory',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RoutinesRoute = RoutinesRouteImport.update({
-  id: '/routines',
-  path: '/routines',
+const PhoebeRoute = PhoebeRouteImport.update({
+  id: '/phoebe',
+  path: '/phoebe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatsIndexRoute = ChatsIndexRouteImport.update({
@@ -61,6 +53,26 @@ const DesksNewRoute = DesksNewRouteImport.update({
   path: '/desks/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PhoebeIndexRoute = PhoebeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PhoebeRoute,
+} as any)
+const PhoebeConnectionsRoute = PhoebeConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => PhoebeRoute,
+} as any)
+const PhoebeMemoryRoute = PhoebeMemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => PhoebeRoute,
+} as any)
+const PhoebeModelsRoute = PhoebeModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => PhoebeRoute,
+} as any)
 const DesksDeskIdIndexRoute = DesksDeskIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -79,25 +91,28 @@ const DesksDeskIdNotebookRoute = DesksDeskIdNotebookRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/connections': typeof ConnectionsRoute
-  '/memory': typeof MemoryRoute
-  '/routines': typeof RoutinesRoute
+  '/phoebe': typeof PhoebeRouteWithChildren
   '/chats/$chatId': typeof ChatsChatIdRoute
   '/desks/$deskId': typeof DesksDeskIdRouteWithChildren
   '/desks/new': typeof DesksNewRoute
+  '/phoebe/connections': typeof PhoebeConnectionsRoute
+  '/phoebe/memory': typeof PhoebeMemoryRoute
+  '/phoebe/models': typeof PhoebeModelsRoute
   '/chats/': typeof ChatsIndexRoute
+  '/phoebe/': typeof PhoebeIndexRoute
   '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
   '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
   '/desks/$deskId/': typeof DesksDeskIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/connections': typeof ConnectionsRoute
-  '/memory': typeof MemoryRoute
-  '/routines': typeof RoutinesRoute
   '/chats/$chatId': typeof ChatsChatIdRoute
   '/desks/new': typeof DesksNewRoute
+  '/phoebe/connections': typeof PhoebeConnectionsRoute
+  '/phoebe/memory': typeof PhoebeMemoryRoute
+  '/phoebe/models': typeof PhoebeModelsRoute
   '/chats': typeof ChatsIndexRoute
+  '/phoebe': typeof PhoebeIndexRoute
   '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
   '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
   '/desks/$deskId': typeof DesksDeskIdIndexRoute
@@ -105,13 +120,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/connections': typeof ConnectionsRoute
-  '/memory': typeof MemoryRoute
-  '/routines': typeof RoutinesRoute
+  '/phoebe': typeof PhoebeRouteWithChildren
   '/chats/$chatId': typeof ChatsChatIdRoute
   '/desks/$deskId': typeof DesksDeskIdRouteWithChildren
   '/desks/new': typeof DesksNewRoute
+  '/phoebe/connections': typeof PhoebeConnectionsRoute
+  '/phoebe/memory': typeof PhoebeMemoryRoute
+  '/phoebe/models': typeof PhoebeModelsRoute
   '/chats/': typeof ChatsIndexRoute
+  '/phoebe/': typeof PhoebeIndexRoute
   '/desks/$deskId/brief': typeof DesksDeskIdBriefRoute
   '/desks/$deskId/notebook': typeof DesksDeskIdNotebookRoute
   '/desks/$deskId/': typeof DesksDeskIdIndexRoute
@@ -120,38 +137,43 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/connections'
-    | '/memory'
-    | '/routines'
+    | '/phoebe'
     | '/chats/$chatId'
     | '/desks/$deskId'
     | '/desks/new'
+    | '/phoebe/connections'
+    | '/phoebe/memory'
+    | '/phoebe/models'
     | '/chats/'
+    | '/phoebe/'
     | '/desks/$deskId/brief'
     | '/desks/$deskId/notebook'
     | '/desks/$deskId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/connections'
-    | '/memory'
-    | '/routines'
     | '/chats/$chatId'
     | '/desks/new'
+    | '/phoebe/connections'
+    | '/phoebe/memory'
+    | '/phoebe/models'
     | '/chats'
+    | '/phoebe'
     | '/desks/$deskId/brief'
     | '/desks/$deskId/notebook'
     | '/desks/$deskId'
   id:
     | '__root__'
     | '/'
-    | '/connections'
-    | '/memory'
-    | '/routines'
+    | '/phoebe'
     | '/chats/$chatId'
     | '/desks/$deskId'
     | '/desks/new'
+    | '/phoebe/connections'
+    | '/phoebe/memory'
+    | '/phoebe/models'
     | '/chats/'
+    | '/phoebe/'
     | '/desks/$deskId/brief'
     | '/desks/$deskId/notebook'
     | '/desks/$deskId/'
@@ -159,9 +181,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ConnectionsRoute: typeof ConnectionsRoute
-  MemoryRoute: typeof MemoryRoute
-  RoutinesRoute: typeof RoutinesRoute
+  PhoebeRoute: typeof PhoebeRouteWithChildren
   ChatsChatIdRoute: typeof ChatsChatIdRoute
   DesksDeskIdRoute: typeof DesksDeskIdRouteWithChildren
   DesksNewRoute: typeof DesksNewRoute
@@ -177,25 +197,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/connections': {
-      id: '/connections'
-      path: '/connections'
-      fullPath: '/connections'
-      preLoaderRoute: typeof ConnectionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/memory': {
-      id: '/memory'
-      path: '/memory'
-      fullPath: '/memory'
-      preLoaderRoute: typeof MemoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/routines': {
-      id: '/routines'
-      path: '/routines'
-      fullPath: '/routines'
-      preLoaderRoute: typeof RoutinesRouteImport
+    '/phoebe': {
+      id: '/phoebe'
+      path: '/phoebe'
+      fullPath: '/phoebe'
+      preLoaderRoute: typeof PhoebeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chats/': {
@@ -226,6 +232,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DesksNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/phoebe/': {
+      id: '/phoebe/'
+      path: '/'
+      fullPath: '/phoebe/'
+      preLoaderRoute: typeof PhoebeIndexRouteImport
+      parentRoute: typeof PhoebeRoute
+    }
+    '/phoebe/connections': {
+      id: '/phoebe/connections'
+      path: '/connections'
+      fullPath: '/phoebe/connections'
+      preLoaderRoute: typeof PhoebeConnectionsRouteImport
+      parentRoute: typeof PhoebeRoute
+    }
+    '/phoebe/memory': {
+      id: '/phoebe/memory'
+      path: '/memory'
+      fullPath: '/phoebe/memory'
+      preLoaderRoute: typeof PhoebeMemoryRouteImport
+      parentRoute: typeof PhoebeRoute
+    }
+    '/phoebe/models': {
+      id: '/phoebe/models'
+      path: '/models'
+      fullPath: '/phoebe/models'
+      preLoaderRoute: typeof PhoebeModelsRouteImport
+      parentRoute: typeof PhoebeRoute
+    }
     '/desks/$deskId/': {
       id: '/desks/$deskId/'
       path: '/'
@@ -250,6 +284,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PhoebeRouteChildren {
+  PhoebeConnectionsRoute: typeof PhoebeConnectionsRoute
+  PhoebeMemoryRoute: typeof PhoebeMemoryRoute
+  PhoebeModelsRoute: typeof PhoebeModelsRoute
+  PhoebeIndexRoute: typeof PhoebeIndexRoute
+}
+
+const PhoebeRouteChildren: PhoebeRouteChildren = {
+  PhoebeConnectionsRoute: PhoebeConnectionsRoute,
+  PhoebeMemoryRoute: PhoebeMemoryRoute,
+  PhoebeModelsRoute: PhoebeModelsRoute,
+  PhoebeIndexRoute: PhoebeIndexRoute,
+}
+
+const PhoebeRouteWithChildren =
+  PhoebeRoute._addFileChildren(PhoebeRouteChildren)
+
 interface DesksDeskIdRouteChildren {
   DesksDeskIdBriefRoute: typeof DesksDeskIdBriefRoute
   DesksDeskIdNotebookRoute: typeof DesksDeskIdNotebookRoute
@@ -268,9 +319,7 @@ const DesksDeskIdRouteWithChildren = DesksDeskIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ConnectionsRoute: ConnectionsRoute,
-  MemoryRoute: MemoryRoute,
-  RoutinesRoute: RoutinesRoute,
+  PhoebeRoute: PhoebeRouteWithChildren,
   ChatsChatIdRoute: ChatsChatIdRoute,
   DesksDeskIdRoute: DesksDeskIdRouteWithChildren,
   DesksNewRoute: DesksNewRoute,

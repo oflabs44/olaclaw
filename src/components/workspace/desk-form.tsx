@@ -9,7 +9,7 @@ import type { DeskInput } from "@/desks";
 import { draftDeskBrief } from "@/workspace-data";
 import { DeskIcon } from "./desk-icon";
 
-const labelClass = "text-[0.85rem] font-semibold text-ink-soft";
+const labelClass = "text-[13px] text-ink-soft";
 
 // The radio input is hidden; its mark takes the ring when the input is checked or has the keyboard focus.
 const choiceMarkClass =
@@ -134,7 +134,7 @@ export function DeskForm({
 				<label htmlFor="desk-brief" className={labelClass}>
 					Brief
 				</label>
-				<p className="text-[0.85rem] text-ink-soft">
+				<p className="text-[13px] text-ink-soft">
 					What this desk is for, what Phoebe checks, and what your short requests mean here. She reads it in every
 					chat at this desk. Write it yourself, or write a line about the job and let her draft it. It changes only
 					when you save it or approve her proposal.

@@ -12,7 +12,6 @@ import {
 import { type ReactNode, useState } from "react";
 import { z } from "zod";
 import { Chrome } from "@/components/workspace/chrome";
-import { useActiveDesk } from "@/components/workspace/current-place";
 import { Omnibox } from "@/components/workspace/omnibox";
 import { PageHeader } from "@/components/workspace/page-header";
 import { ApprovalsPane, LeftPane } from "@/components/workspace/panes";
@@ -24,7 +23,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useKeyboardViewport } from "@/lib/use-keyboard-viewport";
 import appCss from "@/styles.css?url";
 import { getThemePreference, SYSTEM_THEME_SCRIPT, type ThemePreference } from "@/theme";
-import { DESK_PAPER } from "@/desk-look";
 import { getApprovals, getAyoConnection, getChats, getDesks } from "@/workspace-data";
 
 declare module "@tanstack/react-router" {
@@ -50,12 +48,12 @@ export type WorkspaceSearch = z.infer<typeof workspaceSearch>;
 const PAPER = { light: "#fafafa", dark: "#0e0f11" };
 
 // Not in the route's `head`: that keeps one meta per name, and the system theme needs two.
-function ThemeColorMeta({ theme, paper }: { theme: ThemePreference; paper: typeof PAPER }) {
-	if (theme !== "system") return <meta name="theme-color" content={paper[theme]} />;
+function ThemeColorMeta({ theme }: { theme: ThemePreference }) {
+	if (theme !== "system") return <meta name="theme-color" content={PAPER[theme]} />;
 	return (
 		<>
-			<meta name="theme-color" content={paper.light} media="(prefers-color-scheme: light)" />
-			<meta name="theme-color" content={paper.dark} media="(prefers-color-scheme: dark)" />
+			<meta name="theme-color" content={PAPER.light} media="(prefers-color-scheme: light)" />
+			<meta name="theme-color" content={PAPER.dark} media="(prefers-color-scheme: dark)" />
 		</>
 	);
 }
@@ -110,14 +108,12 @@ export const Route = createRootRoute({
 function RootDocument({ children }: { children: ReactNode }) {
 	// The loader data is missing when the root loader failed; the error component then renders inside this shell.
 	const theme = useLoaderData({ from: "__root__", select: (data) => data?.theme ?? "system" });
-	const desk = useActiveDesk();
 	return (
 		// The head script sets data-theme before hydration when the theme follows the system.
-		// data-desk gives the whole page, with its sheets and dialogs, the colours of the desk it is in.
-		<html lang="en" data-theme={theme === "system" ? undefined : theme} data-desk={desk?.hue} suppressHydrationWarning>
+		<html lang="en" data-theme={theme === "system" ? undefined : theme} suppressHydrationWarning>
 			<head>
 				<HeadContent />
-				<ThemeColorMeta theme={theme} paper={desk ? DESK_PAPER[desk.hue] : PAPER} />
+				<ThemeColorMeta theme={theme} />
 			</head>
 			<body>
 				{children}

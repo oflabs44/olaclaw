@@ -12,6 +12,7 @@ import { type ApprovalRecord, type ApprovalSummary, Approvals } from "./approval
 import { type ChatSummary, Chats } from "./chats";
 import { MAX_DESK_BRIEF_LENGTH } from "./desk-look";
 import { type Desk, type DeskInput, type DeskNote, Desks } from "./desks";
+import { type EventRecord, Events } from "./events";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
@@ -28,6 +29,20 @@ import { workspaceExtension } from "./tools/workspace";
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
 
 const APPROVAL_LIST_LIMIT = 100;
+
+const TODAY_LIMIT = 200;
+const TODAY_AGE_LIMIT = 7 * 24 * 60 * 60 * 1_000;
+
+/** An event as the Today page shows it. */
+export type TodayEvent = EventRecord & {
+	/** The approval of an approval event. */
+	readonly approval: {
+		readonly question: string;
+		readonly options: readonly string[];
+		/** True when the question comes with a detail or code, which Oladayo must read before he answers. */
+		readonly hasMoreToRead: boolean;
+	} | null;
+};
 
 const BRIEF_WRITER = `You write the brief of a desk for Phoebe, the personal assistant of Oladayo. A desk is a standing job that Oladayo comes back to across days and weeks. Phoebe reads the brief at the start of every chat at the desk. She can reach his mail, calendar, files, tasks, and notes through a connected service, search the web, and keep a notebook for the desk.
 You get the name of the desk and what Oladayo wrote about the job. Write the brief, addressed to Phoebe as "you". Cover these points in this order, each only where his words give a basis: what the job is; what his short requests mean here, such as "anything new?"; what to report and what to leave out; what to record in the notebook after each visit; what needs his confirmation first.
@@ -50,8 +65,9 @@ export class PiAgent extends DurableObject<Env> {
 	};
 	readonly registry = createRegistry();
 	readonly memory = new Memory(this.ctx.storage.sql);
-	readonly approvals = new Approvals(this.ctx.storage.sql);
-	readonly desks = new Desks(this.ctx.storage.sql);
+	readonly events = new Events(this.ctx.storage.sql);
+	readonly approvals = new Approvals(this.ctx.storage.sql, this.events);
+	readonly desks = new Desks(this.ctx.storage.sql, this.events);
 	// The MCP client for Ayo. It keeps the OAuth token in this object's storage and restores the connection after a wake.
 	readonly mcp = new MCPClientManager("olaclaw", "1.0.0");
 
@@ -94,7 +110,7 @@ export class PiAgent extends DurableObject<Env> {
 		defaults: { model: this.models[DEFAULT_MODEL] },
 	});
 
-	readonly chats = new Chats(this.ctx.storage.sql, this.harness, (firstMessage) => this.nameChat(firstMessage));
+	readonly chats = new Chats(this.ctx.storage.sql, this.harness, (firstMessage) => this.nameChat(firstMessage), this.events);
 
 	readonly sessionSockets = new PiSessionSockets(
 		this.harness,
@@ -218,6 +234,52 @@ export class PiAgent extends DurableObject<Env> {
 		// An RPC call does not pass through `fetch`, and the run needs the MCP client for Ayo.
 		await this.lifecycle.start();
 		return this.chats.start(deskId, text);
+	}
+
+	/**
+	 * Every question that still waits, newest first, then the events of the last 7 days, newest first.
+	 * The waiting questions come from the approval table itself, so the log's cap and this limit cannot
+	 * hide one, and a question from before the log shows too. A withdrawn question is gone from that table.
+	 */
+	listToday(): TodayEvent[] {
+		const waiting: TodayEvent[] = this.approvals
+			.list(APPROVAL_LIST_LIMIT)
+			.filter((approval) => approval.decision === null)
+			.map((approval, index) => ({
+				// Not a log row: a negative id keeps the keys apart from the events'.
+				id: -(index + 1),
+				at: approval.createdAt,
+				kind: "approval_opened",
+				deskId: null,
+				sessionId: approval.sessionId,
+				text: approval.question,
+				callId: approval.callId,
+				approval: {
+					question: approval.question,
+					options: approval.options,
+					hasMoreToRead: approval.detail !== null || approval.code !== null,
+				},
+			}));
+		const oldest = Date.now() - TODAY_AGE_LIMIT;
+		const recent: TodayEvent[] = [];
+		for (const event of this.events.list()) {
+			if (event.at < oldest || recent.length === TODAY_LIMIT) break;
+			if (event.callId === null) {
+				recent.push({ ...event, approval: null });
+				continue;
+			}
+			const approval = this.approvals.find(event.callId);
+			if (!approval) continue;
+			recent.push({
+				...event,
+				approval: {
+					question: approval.question,
+					options: approval.options,
+					hasMoreToRead: approval.detail !== null || approval.code !== null,
+				},
+			});
+		}
+		return [...waiting, ...recent];
 	}
 
 	listMemories(): MemoryEntry[] {
