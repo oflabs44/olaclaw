@@ -214,7 +214,8 @@ export class Chats {
 		const forkEntryId = String(at);
 		const now = Date.now();
 		this.#sql.exec(
-			"INSERT INTO chat (session_id, title, created_at, updated_at, model, parent_session_id, fork_entry_id, desk_id) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
+			// A branch of a chat Phoebe started is still one: it keeps the parent's origin, so it cannot start chats either.
+			"INSERT INTO chat (session_id, title, created_at, updated_at, model, parent_session_id, fork_entry_id, desk_id, started_by_session_id) SELECT ?, NULL, ?, ?, ?, ?, ?, ?, started_by_session_id FROM chat WHERE session_id = ?",
 			id,
 			now,
 			now,
@@ -222,6 +223,7 @@ export class Chats {
 			parentSession,
 			forkEntryId,
 			parent.deskId,
+			parentSession,
 		);
 		return {
 			id,
