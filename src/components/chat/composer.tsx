@@ -223,11 +223,6 @@ export function Composer() {
 						)}
 					</div>
 				</form>
-				<p className="mt-2 ml-1 text-[0.8rem] text-ink-faint max-wide:hidden">
-					{isRunning
-						? "Enter queues your message for after this answer. The square stops the run."
-						: "Enter sends. Shift+Enter adds a line."}
-				</p>
 			</div>
 		</footer>
 	);

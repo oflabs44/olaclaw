@@ -89,7 +89,6 @@ function StartChat({ desk }: { desk: Desk }) {
 						</Button>
 					</div>
 				</form>
-				<p className="mt-2 ml-1 text-[0.8rem] text-ink-faint max-wide:hidden">Enter sends. Shift+Enter adds a line.</p>
 			</div>
 		</footer>
 	);
