@@ -23,6 +23,7 @@ import { ayoExtension, connectAyo, isAyoConnected, recallFromAyo } from "./tools
 import { delegateExtension } from "./tools/delegate";
 import { deskExtension } from "./tools/desk";
 import { memoryExtension } from "./tools/memory";
+import { workspaceExtension } from "./tools/workspace";
 
 const KIMI = "@cf/moonshotai/kimi-k2.7-code";
 
@@ -51,7 +52,6 @@ export class PiAgent extends DurableObject<Env> {
 	readonly memory = new Memory(this.ctx.storage.sql);
 	readonly approvals = new Approvals(this.ctx.storage.sql);
 	readonly desks = new Desks(this.ctx.storage.sql);
-	readonly deskExtension = deskExtension((session) => this.chats.deskOf(session), this.desks, this.approvals);
 	// The MCP client for Ayo. It keeps the OAuth token in this object's storage and restores the connection after a wake.
 	readonly mcp = new MCPClientManager("olaclaw", "1.0.0");
 
@@ -72,22 +72,29 @@ export class PiAgent extends DurableObject<Env> {
 			const memory = memoryExtension(this.memory, (query, limit, signal) => recallFromAyo(this.mcp, query, limit, signal));
 			const ask = askExtension(this.approvals);
 			const ayo = ayoExtension(this.mcp);
-			const delegate = delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask, ayo]);
-			// What every chat gets, in prompt order. A chat of a desk adds `deskExtension` after these.
-			const everyChat = [instructions, memory, toolsExtension(this.env.AI, this.chats), ask, ayo, delegate, clock];
+			const workspace = workspaceExtension(this.chats, this.desks);
+			const desk = deskExtension((session) => this.chats.deskOf(session), this.desks, this.approvals);
+			const delegate = delegateExtension(this.chats, (model) => this.#modelRef(model), [memory, ask, ayo, workspace, desk]);
+			// What every chat gets, in prompt order. The desk section differs from chat to chat, so it comes after
+			// the sections all chats share, which keeps the cached prefix.
+			const everyChat = [
+				instructions,
+				memory,
+				toolsExtension(this.env.AI, this.chats),
+				ask,
+				ayo,
+				delegate,
+				workspace,
+				desk,
+				clock,
+			];
 			for (const extension of everyChat) this.registry.install(extension);
-			this.registry.install(this.deskExtension);
 			return Harness.open(storage, { models, registry: this.registry, settings: { extensions: everyChat } }, context);
 		},
 		defaults: { model: this.models[DEFAULT_MODEL] },
 	});
 
-	readonly chats = new Chats(
-		this.ctx.storage.sql,
-		this.harness,
-		(firstMessage) => this.nameChat(firstMessage),
-		this.deskExtension,
-	);
+	readonly chats = new Chats(this.ctx.storage.sql, this.harness, (firstMessage) => this.nameChat(firstMessage));
 
 	readonly sessionSockets = new PiSessionSockets(
 		this.harness,
@@ -210,10 +217,7 @@ export class PiAgent extends DurableObject<Env> {
 		if (!this.desks.find(deskId)) throw new Error(`Unknown desk ${JSON.stringify(deskId)}`);
 		// An RPC call does not pass through `fetch`, and the run needs the MCP client for Ayo.
 		await this.lifecycle.start();
-		const chat = await this.chats.create(deskId);
-		this.chats.recordSubmit(chat.id, text);
-		await this.harness.session(chat.id).submit(text);
-		return chat;
+		return this.chats.start(deskId, text);
 	}
 
 	listMemories(): MemoryEntry[] {

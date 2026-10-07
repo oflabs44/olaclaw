@@ -3,7 +3,7 @@ import type { DeskHue, DeskIconName } from "./desk-look";
 export type Desk = {
 	readonly id: string;
 	readonly name: string;
-	/** Oladayo's standing instructions for the desk. May be empty. */
+	/** The standing instructions for the desk: Oladayo wrote or approved them, or Phoebe wrote them when she created the desk. May be empty. */
 	readonly brief: string;
 	readonly hue: DeskHue;
 	readonly icon: DeskIconName;
@@ -25,7 +25,7 @@ function toDesk(row: DeskRow): Desk {
 }
 
 /**
- * Oladayo's desks: a standing job each, with a brief that he writes or approves and a notebook that Phoebe keeps.
+ * Oladayo's desks: a standing job each, with a brief and a notebook that Phoebe keeps. He or Phoebe creates a desk; a brief changes only by his hand or approval.
  * The chats of a desk name it in `chat.desk_id`. A desk id is its row id as text; SQLite compares it
  * with the integer column as a number.
  */

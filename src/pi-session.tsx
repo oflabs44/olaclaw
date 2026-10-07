@@ -4,7 +4,7 @@ import { createStore, useSelector } from "@tanstack/react-store";
 import { useAgent } from "agents/react";
 import type { AgentEvent } from "@earendil-works/pi-durable";
 import { createContext, type ReactNode, use, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ASK_TOOL, type ClientMessage, DESK_PROPOSE_BRIEF_TOOL, type ServerMessage, SOCKET_PATH } from "./protocol";
+import { type ClientMessage, type ServerMessage, SOCKET_PATH, WORKSPACE_TOOLS } from "./protocol";
 import { EMPTY_VIEW, type PiSessionView, reduceEvents } from "./view";
 
 export type ConnectionStatus = "connecting" | "open" | "closed";
@@ -166,13 +166,14 @@ export function PiSessionProvider({
 		const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
 		// The approvals panel lists the questions, so it reloads when `ask` starts and when it ends:
 		// answered here, answered from the panel, or withdrawn by a Stop. The same holds for a proposed
-		// brief, and an approved one also changes the desk.
-		const askChanged = events.some(
+		// brief, and an approved one also changes the desk. Phoebe's other workspace tools change the desks
+		// and the chats that the panes list.
+		const workspaceChanged = events.some(
 			(agentEvent) =>
 				(agentEvent.type === "tool_execution_start" || agentEvent.type === "tool_execution_end") &&
-				(agentEvent.toolName === ASK_TOOL || agentEvent.toolName === DESK_PROPOSE_BRIEF_TOOL),
+				WORKSPACE_TOOLS.has(agentEvent.toolName),
 		);
-		if (askChanged || (!hasSnapshot && isFirstRun && ((wasEmpty && messages.length > 0) || runEnded))) {
+		if (workspaceChanged || (!hasSnapshot && isFirstRun && ((wasEmpty && messages.length > 0) || runEnded))) {
 			void router.invalidate();
 		}
 	});

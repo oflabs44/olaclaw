@@ -37,6 +37,21 @@ export function deskBriefProposal(brief: string, reason: string) {
 	};
 }
 
+/**
+ * The tools whose calls change what the workspace shows outside the transcript: the approvals, the
+ * desks, and the chats with their desks. An open chat reloads the workspace when one starts or ends.
+ */
+export const WORKSPACE_TOOLS: ReadonlySet<string> = new Set([
+	ASK_TOOL,
+	DESK_PROPOSE_BRIEF_TOOL,
+	"desk_create",
+	"desk_update",
+	"chat_move_to_desk",
+	"chat_start",
+	"desk_note",
+	"desk_forget",
+]);
+
 /** The tool whose call the chat shows with its code as code. */
 export const AYO_EXECUTE_TOOL = "ayo_execute";
 
