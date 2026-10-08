@@ -6,20 +6,10 @@ export type ApprovalRecord = {
 	readonly sessionId: string;
 	readonly question: string;
 	readonly detail: string | null;
-	/** Code the answer decides on, shown as code. */
-	readonly code: string | null;
 	readonly options: readonly string[];
 	readonly decision: string | null;
 	readonly createdAt: number;
 	readonly decidedAt: number | null;
-};
-
-/** An approval for a list: the code stays behind, and only its length goes along. */
-export type ApprovalSummary = Omit<ApprovalRecord, "code"> & {
-	/** Null when the answer decides on no code. */
-	readonly codeLineCount: number | null;
-	/** The Ayo capabilities the code names; empty without code. */
-	readonly codeCalls: readonly string[];
 };
 
 type ApprovalRow = {
@@ -27,7 +17,6 @@ type ApprovalRow = {
 	session_id: string;
 	question: string;
 	detail: string | null;
-	code: string | null;
 	options: string;
 	decision: string | null;
 	created_at: number;
@@ -36,7 +25,7 @@ type ApprovalRow = {
 
 const MAX_ANSWER_LENGTH = 500;
 
-const COLUMNS = "call_id, session_id, question, detail, code, options, decision, created_at, decided_at";
+const COLUMNS = "call_id, session_id, question, detail, options, decision, created_at, decided_at";
 
 function toRecord(row: ApprovalRow): ApprovalRecord {
 	return {
@@ -44,7 +33,6 @@ function toRecord(row: ApprovalRow): ApprovalRecord {
 		sessionId: row.session_id,
 		question: row.question,
 		detail: row.detail,
-		code: row.code,
 		options: JSON.parse(row.options),
 		decision: row.decision,
 		createdAt: row.created_at,
@@ -67,10 +55,6 @@ export class Approvals {
 		sql.exec(
 			"CREATE TABLE IF NOT EXISTS approval (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, call_id TEXT NOT NULL UNIQUE, question TEXT NOT NULL, detail TEXT NULL, options TEXT NOT NULL, decision TEXT NULL, created_at INTEGER NOT NULL, decided_at INTEGER NULL)",
 		);
-		// The table is older than this column.
-		if (!sql.exec("SELECT * FROM approval LIMIT 0").columnNames.includes("code")) {
-			sql.exec("ALTER TABLE approval ADD COLUMN code TEXT NULL");
-		}
 	}
 
 	find(callId: string): ApprovalRecord | undefined {
@@ -82,14 +66,7 @@ export class Approvals {
 	 * Keeps the row a replayed call opened before, with its decision if one came in the meantime.
 	 * Throws for a call id that already asked something else: an answer must never reach another question.
 	 */
-	open(
-		session: string,
-		callId: string,
-		question: string,
-		options: readonly string[],
-		detail: string | undefined,
-		code?: string,
-	): void {
+	open(session: string, callId: string, question: string, options: readonly string[], detail: string | undefined): void {
 		const existing = this.find(callId);
 		if (existing) {
 			// Call ids come from the model provider. A repeat in another chat must not hand that chat's answer over.
@@ -97,19 +74,16 @@ export class Approvals {
 			if (existing.question !== question || JSON.stringify(existing.options) !== JSON.stringify(options)) {
 				throw new Error(`Call id ${callId} already asked a different question`);
 			}
-			// The question of a code approval is fixed, so the code is what tells two calls apart. For a
-			// proposed brief it is the detail, which holds the brief.
-			if (existing.code !== (code ?? null)) throw new Error(`Call id ${callId} already asked about other code`);
+			// The question of a proposed brief is fixed, so the detail, which holds the brief, is what tells two calls apart.
 			if (existing.detail !== (detail ?? null)) throw new Error(`Call id ${callId} already asked with another detail`);
 			return;
 		}
 		this.#sql.exec(
-			"INSERT INTO approval (session_id, call_id, question, detail, code, options, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO approval (session_id, call_id, question, detail, options, created_at) VALUES (?, ?, ?, ?, ?, ?)",
 			session,
 			callId,
 			question,
 			detail ?? null,
-			code ?? null,
 			JSON.stringify(options),
 			Date.now(),
 		);

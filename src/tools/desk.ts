@@ -4,7 +4,7 @@ import type { Approvals } from "../approvals";
 import { MAX_DESK_BRIEF_LENGTH, MAX_DESK_NOTE_LENGTH } from "../desk-look";
 import type { DeskNote, Desks } from "../desks";
 import { TIME_ZONE } from "../instructions";
-import { DESK_PROPOSE_BRIEF_TOOL, deskBriefProposal } from "../protocol";
+import { type AnswerDetails, DESK_PROPOSE_BRIEF_TOOL, deskBriefProposal } from "../protocol";
 import { errorResult } from "./fetch-url";
 
 const NOT_AT_A_DESK = "This chat is not at a desk, so it has no brief and no notebook.";
@@ -103,10 +103,10 @@ export function deskExtension(
 			approvals.open(String(api.conversationId), api.callId, proposal.question, proposal.options, proposal.detail);
 			const answer = await approvals.wait(api.callId, context.abortSignal);
 			if (answer !== approve) {
-				return { content: [{ type: "text", text: `Oladayo did not approve, so the brief is unchanged. His answer: ${answer}` }] };
+				return { content: [{ type: "text", text: `Oladayo did not approve, so the brief is unchanged. His answer: ${answer}` }], details: { answer } satisfies AnswerDetails };
 			}
 			desks.setBrief(desk.id, brief.trim());
-			return { content: [{ type: "text", text: "Oladayo approved. The new brief is in effect from your next step." }] };
+			return { content: [{ type: "text", text: "Oladayo approved. The new brief is in effect from your next step." }], details: { answer } satisfies AnswerDetails };
 		},
 	});
 

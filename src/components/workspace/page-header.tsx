@@ -1,26 +1,15 @@
-import {
-	BubbleChatIcon,
-	TaskDone01Icon,
-	SidebarLeft01Icon,
-	SidebarRight01Icon,
-} from "@hugeicons/core-free-icons";
+import { BubbleChatIcon, SidebarLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useLoaderData } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type PanelSide, usePanel } from "./panels";
+import { useLeftPanel } from "./panels";
 
-const PANEL_NAMES: Record<PanelSide, string> = { left: "left panel", right: "approvals" };
-const PHONE_LABELS: Record<PanelSide, string> = { left: "Open chats", right: "Open approvals" };
-const PANEL_KEYS: Record<PanelSide, string> = { left: "[", right: "]" };
-
-function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode }) {
-	const panel = usePanel(side);
-	// The approvals are a sheet on every screen, so their toggle only opens; the sheet closes itself.
-	const opensSheet = panel.isPhone || side === "right";
-	const label = opensSheet ? PHONE_LABELS[side] : `${panel.isOpen ? "Hide" : "Show"} the ${PANEL_NAMES[side]}`;
+/** A pane on a wide screen, which the button shows and hides; a drawer on a phone, which the button only opens. */
+function LeftPanelToggle() {
+	const panel = useLeftPanel();
+	const label = panel.isPhone ? "Open chats" : `${panel.isOpen ? "Hide" : "Show"} the left panel`;
 
 	return (
 		<Tooltip>
@@ -29,55 +18,38 @@ function PanelToggle({ side, children }: { side: PanelSide; children: ReactNode 
 					<Button
 						icon
 						aria-label={label}
-						aria-pressed={opensSheet ? undefined : panel.isOpen}
-						aria-expanded={opensSheet ? panel.isOpen : undefined}
+						aria-pressed={panel.isPhone ? undefined : panel.isOpen}
+						aria-expanded={panel.isPhone ? panel.isOpen : undefined}
 						onClick={panel.toggle}
-						className="relative aria-pressed:text-ink max-wide:text-ink"
+						className="aria-pressed:text-ink max-wide:text-ink"
 					/>
 				}
 			>
-				{children}
+				<HugeiconsIcon icon={SidebarLeft01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
+				<HugeiconsIcon icon={BubbleChatIcon} size={20} strokeWidth={1.5} className="wide:hidden" />
 			</TooltipTrigger>
 			<TooltipContent>
-				{label} <Kbd className="bg-paper/20 text-paper">{PANEL_KEYS[side]}</Kbd>
+				{label} <Kbd className="bg-paper/20 text-paper">[</Kbd>
 			</TooltipContent>
 		</Tooltip>
 	);
 }
 
 /**
- * The card header on wide screens and the app bar on phones: panel toggles around the title.
+ * The card header on wide screens and the app bar on phones: the panel toggle, then the title.
  * A page that shows its own title in its content passes none.
  * `subtitle` is a small line under the title, for example where a branch comes from.
  * `status` sits after the title, for example the chat's "Working" indicator.
  */
 export function PageHeader({ title, subtitle, status }: { title?: string; subtitle?: ReactNode; status?: ReactNode }) {
-	const needsYouCount = useLoaderData({
-		from: "__root__",
-		select: (data) => data.approvals.filter((approval) => approval.decision === undefined).length,
-	});
-
 	return (
 		<header className="flex items-center gap-2.5 px-3 py-[0.55rem] max-wide:gap-1 max-wide:bg-paper max-wide:px-2 max-wide:py-[0.35rem] max-wide:pt-[max(0.35rem,env(safe-area-inset-top))]">
-			<PanelToggle side="left">
-				<HugeiconsIcon icon={SidebarLeft01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
-				<HugeiconsIcon icon={BubbleChatIcon} size={20} strokeWidth={1.5} className="wide:hidden" />
-			</PanelToggle>
+			<LeftPanelToggle />
 			<div className="min-w-0 flex-1 pl-1 max-wide:pl-0">
 				{title && <h1 className="truncate text-[18px] font-semibold">{title}</h1>}
 				{subtitle && <p className="truncate text-[13px] leading-tight text-ink-soft">{subtitle}</p>}
 			</div>
 			{status}
-			<PanelToggle side="right">
-				<HugeiconsIcon icon={TaskDone01Icon} size={18} strokeWidth={1.5} className="max-wide:hidden" />
-				<HugeiconsIcon icon={TaskDone01Icon} size={20} strokeWidth={1.5} className="wide:hidden" />
-				{needsYouCount > 0 && (
-					<span
-						className="absolute top-2 right-2 size-[7px] rounded-full bg-star shadow-[0_0_0_2px_var(--paper)] wide:hidden"
-						aria-hidden="true"
-					/>
-				)}
-			</PanelToggle>
 		</header>
 	);
 }

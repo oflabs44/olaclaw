@@ -118,7 +118,7 @@ export const codeHighlighter: CodeHighlighterPlugin = {
 
 export type HighlightedToken = { content: string; color?: string; darkColor?: string };
 
-// Relative luminance of --paper in each theme (src/tokens.css): the surface behind approval code.
+// Relative luminance of --paper in each theme (src/tokens.css): the surface behind highlighted code.
 const PAPER_LUMINANCE = { light: 0.955, dark: 0.005 };
 const MIN_CONTRAST = 3;
 
@@ -139,7 +139,7 @@ function readableColor(color: string | undefined, paperLuminance: number): strin
 const highlightedLines = new Map<string, Promise<HighlightedToken[][] | null>>();
 
 /**
- * The tokens of each line of `code`, for text Oladayo approves. The same call returns the same
+ * The tokens of each line of `code`. The same call returns the same
  * promise, so React `use()` can read it. Null when highlighting fails or the tokens do not spell
  * the source lines exactly; the caller then shows the plain text. Only the colour of a token is
  * taken from the theme, and only when it reads well on paper.

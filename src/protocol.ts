@@ -5,6 +5,9 @@ import type { ModelId } from "./models";
 /** The tool whose running call the chat renders as a question with buttons. */
 export const ASK_TOOL = "ask";
 
+/** What an `ask` or `desk_propose_brief` call reports with its result: the answer as Oladayo gave it. */
+export type AnswerDetails = { readonly answer: string };
+
 /** The tool whose call the chat renders as a subagent, with the session in the call's details. */
 export const DELEGATE_TOOL = "delegate";
 
@@ -38,7 +41,7 @@ export function deskBriefProposal(brief: string, reason: string) {
 }
 
 /**
- * The tools whose calls change what the workspace shows outside the transcript: the approvals, the
+ * The tools whose calls change what the workspace shows outside the transcript: the questions that wait, the
  * desks, and the chats with their desks. An open chat reloads the workspace when one starts or ends.
  */
 export const WORKSPACE_TOOLS: ReadonlySet<string> = new Set([
@@ -54,25 +57,6 @@ export const WORKSPACE_TOOLS: ReadonlySet<string> = new Set([
 
 /** The tool whose call the chat shows with its code as code. */
 export const AYO_EXECUTE_TOOL = "ayo_execute";
-
-/**
- * The two parts of a stored code approval: the printed params, an empty line, then the code. Printed
- * JSON has no empty line, so the first one is the border, whatever the code contains. The history
- * shows the parts apart.
- */
-export function ayoExecuteParts(shown: string): { params: string; code: string } {
-	const border = shown.indexOf("\n\n");
-	if (border === -1) return { params: "", code: shown };
-	return { params: shown.slice(0, border), code: shown.slice(border + 2) };
-}
-
-/**
- * The Ayo capabilities a piece of `ayo_execute` code names as `ayo.<name>(`, in order of first use.
- * A label for the history only: code can also reach a capability in ways this does not see.
- */
-export function ayoCalls(code: string): string[] {
-	return [...new Set([...code.matchAll(/\bayo\.([A-Za-z_]\w*)\s*\(/g)].map((match) => match[1]))];
-}
 
 /** URL path of the chat socket. The Worker forwards upgrades on it to the user's object. */
 export const SOCKET_PATH = "agent-socket";

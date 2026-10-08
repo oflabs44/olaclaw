@@ -1,38 +1,24 @@
-import { BubbleChatIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { chatTree } from "@/components/workspace/chat-tree";
-import { PageHeader } from "@/components/workspace/page-header";
-import { ChatLink } from "@/components/workspace/workspace-nav";
+import { createFileRoute } from "@tanstack/react-router";
+import { DeskHome } from "@/components/workspace/desk-home";
+import { GENERAL_DESK_NAME, GeneralDeskIcon } from "@/components/workspace/general-desk";
 
 export const Route = createFileRoute("/chats/")({
-	staticData: { section: "Chats" },
-	component: ChatsPage,
+	staticData: { section: GENERAL_DESK_NAME },
+	component: GeneralDeskPage,
 });
 
-function ChatsPage() {
-	const chats = useLoaderData({ from: "__root__", select: (data) => data.chats });
+/** The page of the General desk. It has nothing to set, so its name leads nowhere. */
+function GeneralDeskPage() {
 	return (
-		<>
-			<PageHeader title="Chats" />
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia>
-						<HugeiconsIcon icon={BubbleChatIcon} strokeWidth={1.5} />
-					</EmptyMedia>
-					<EmptyTitle>Pick a chat</EmptyTitle>
-					<EmptyDescription>
-						Your chats, most recent first, each branch under its chat. Start a new one from the left pane. The chats of
-						a desk are at the desk.
-					</EmptyDescription>
-				</EmptyHeader>
-				<EmptyContent className="items-stretch gap-0.5 text-left">
-					{chatTree(chats.filter((chat) => chat.deskId === null)).map((row) => (
-						<ChatLink key={row.chat.id} row={row} />
-					))}
-				</EmptyContent>
-			</Empty>
-		</>
+		<DeskHome
+			deskId={null}
+			placeholder="New chat"
+			header={
+				<h1 className="flex min-w-0 items-center gap-3 py-1 text-[22px] leading-[1.3] font-semibold tracking-[-0.01em] max-wide:min-h-11">
+					<GeneralDeskIcon size={22} />
+					{GENERAL_DESK_NAME}
+				</h1>
+			}
+		/>
 	);
 }

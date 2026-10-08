@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useOmnibox, usePanel } from "./panels";
+import { useLeftPanel, useOmnibox } from "./panels";
 
 function isTyping(target: EventTarget | null) {
 	return (
@@ -8,10 +8,9 @@ function isTyping(target: EventTarget | null) {
 	);
 }
 
-/** `[` and `]` toggle the side panels; ⌘K or Ctrl+K opens the omnibox. */
+/** `[` toggles the left panel; ⌘K or Ctrl+K opens the omnibox. */
 export function WorkspaceKeys() {
-	const left = usePanel("left");
-	const right = usePanel("right");
+	const left = useLeftPanel();
 	const omnibox = useOmnibox();
 
 	useEffect(() => {
@@ -23,7 +22,6 @@ export function WorkspaceKeys() {
 			}
 			if (event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return;
 			if (event.key === "[") left.toggle();
-			if (event.key === "]") right.toggle();
 		}
 		document.addEventListener("keydown", onKeyDown);
 		return () => document.removeEventListener("keydown", onKeyDown);

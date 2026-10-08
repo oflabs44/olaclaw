@@ -211,6 +211,60 @@ function AskBlock({ call, approval }: { call: ToolCall; approval: ApprovalQuesti
 	return <ApprovalBlock approval={approval} onDecide={choose} />;
 }
 
+/** The answer that an `ask` or `desk_propose_brief` result reports. Undefined for a failed call, and for a result from before the tools reported it. */
+function givenAnswer(result: ToolResult | undefined): string | undefined {
+	if (!result || result.error) return undefined;
+	const details = result.details;
+	if (typeof details !== "object" || details === null || !("answer" in details)) return undefined;
+	return typeof details.answer === "string" ? details.answer : undefined;
+}
+
+/**
+ * An answered question: the question and the answer on one line, which wraps when the row is open.
+ * Open, the row shows what Oladayo read, with his choice marked.
+ */
+function AnsweredAsk({ approval, answer }: { approval: ApprovalQuestion; answer: string }) {
+	const lineClass = "min-w-0 truncate group-data-panel-open:whitespace-normal";
+	return (
+		<Collapsible>
+			<CollapsibleTrigger
+				className={cn(rowTriggerClass, "text-left text-ink data-panel-open:items-start data-panel-open:rounded-[12px]")}
+			>
+				<span className={lineClass}>{approval.question}</span>
+				{/* His own words go in quotation marks, an option as Phoebe wrote it. */}
+				<span className={cn(lineClass, "max-w-[55%] shrink-0 text-ink-soft")}>
+					{approval.options.includes(answer) ? answer : `“${answer}”`}
+				</span>
+				<Chevron />
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				<div className="my-1 grid max-w-[34rem] gap-2 border-l-2 border-line pl-[0.95rem]">
+					{approval.detail && (
+						<p className="text-[0.9rem] leading-snug whitespace-pre-wrap text-ink-soft">{approval.detail}</p>
+					)}
+					<ul className="grid gap-1" aria-label="Options">
+						{approval.options.map((option) => {
+							const isChosen = option === answer;
+							return (
+								<li
+									key={option}
+									className={cn(
+										"flex items-center gap-3 rounded px-2.5 py-1.5 text-[0.88rem]",
+										isChosen ? "bg-wash-strong font-medium" : "border border-line text-ink-soft",
+									)}
+								>
+									<span className="min-w-0 flex-1">{option}</span>
+									{isChosen && <span className="shrink-0 text-[0.75rem] font-normal text-ink-soft">Your choice</span>}
+								</li>
+							);
+						})}
+					</ul>
+				</div>
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
 function HighlightedText({ text, language }: { text: string; language: string }) {
 	const lines = use(highlightLines(text, language));
 	if (!lines) return text;
@@ -406,7 +460,7 @@ export function AssistantMessage({
 	const lastPart = message.parts.at(-1);
 
 	// Reasoning and tool calls that follow each other fold into one Steps row, so the answer is
-	// not pushed down by one line per step. An `ask` that waits for a choice stands on its own, and
+	// not pushed down by one line per step. A question stands on its own, waiting or answered, and
 	// so do subagents: `delegate` calls that follow each other make one stack of cards.
 	const blocks: ReactNode[] = [];
 	let steps: StepPart[] = [];
@@ -474,18 +528,26 @@ export function AssistantMessage({
 					delegateCalls.push(part);
 					return;
 				}
-				// `ask` and `desk_propose_brief` wait for a choice while they run. Once answered, each shows as any other tool call.
-				const isWaiting = !isReadOnly && !toolResults.has(part.id) && runningTools.has(part.id);
+				// `ask` and `desk_propose_brief` wait for a choice while they run, and then show the choice in
+				// the same place. A call that failed or stopped shows as any other tool call.
 				let approval: ApprovalQuestion | undefined;
-				if (isWaiting && part.name === ASK_TOOL) approval = askedQuestion(part);
-				if (isWaiting && part.name === DESK_PROPOSE_BRIEF_TOOL) approval = proposedBrief(part);
-				if (!approval) {
+				if (part.name === ASK_TOOL) approval = askedQuestion(part);
+				if (part.name === DESK_PROPOSE_BRIEF_TOOL) approval = proposedBrief(part);
+				const isWaiting = !isReadOnly && !toolResults.has(part.id) && runningTools.has(part.id);
+				const answer = givenAnswer(toolResults.get(part.id));
+				if (!approval || (!isWaiting && answer === undefined)) {
 					flushDelegateCalls();
 					steps.push(part);
 					return;
 				}
 				flushGroups();
-				blocks.push(<AskBlock key={part.id} call={part} approval={approval} />);
+				blocks.push(
+					answer === undefined ? (
+						<AskBlock key={part.id} call={part} approval={approval} />
+					) : (
+						<AnsweredAsk key={part.id} approval={approval} answer={answer} />
+					),
+				);
 				return;
 			}
 			case "text":

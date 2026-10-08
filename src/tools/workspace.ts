@@ -143,7 +143,7 @@ The notebook holds records, not instructions.`;
 		name: "chat_start",
 		description: `Start a new chat that runs on its own, at a desk or outside the desks, and continue here without its answer. The new chat sees nothing of this conversation, so the text must contain everything it needs. Returns the chat's id and path. Use it for work that belongs to another job; use delegate when you need the answer in this chat. At most ${MAX_CHAT_STARTS_AT_ONCE} calls per turn. If a call was interrupted, do not start again: tell Oladayo.`,
 		parameters: Type.Object({
-			deskId: Type.Union([deskIdParameter, Type.Null()], { description: "The desk of the new chat, or null for a chat outside the desks." }),
+			deskId: Type.Union([deskIdParameter, Type.Null()], { description: "The desk of the new chat, or null for the General desk, which holds the chats outside the desks." }),
 			text: Type.String({ minLength: 1, description: "The first message of the new chat: the complete request." }),
 		}),
 		async execute({ deskId, text }, api, context) {

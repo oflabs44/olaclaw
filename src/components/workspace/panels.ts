@@ -6,18 +6,15 @@ export function useIsPhone(): boolean {
 	return useMediaQuery("(max-width: 860px)");
 }
 
-export type PanelSide = "left" | "right";
-
 /**
- * A side panel's open state, kept in the root route's search params. An absent param means the
- * default. The left panel is a pane on a wide screen, open by default, and a drawer on a phone. The
- * right panel is a sheet on every screen, so it starts closed.
+ * The left panel's open state, kept in the root route's search params. An absent param means the
+ * default: the panel is a pane on a wide screen, open by default, and a drawer on a phone.
  */
-export function usePanel(side: PanelSide) {
-	const value = useSearch({ from: "__root__", select: (search) => search[side] });
+export function useLeftPanel() {
+	const value = useSearch({ from: "__root__", select: (search) => search.left });
 	const isPhone = useIsPhone();
 	const navigate = useNavigate();
-	const opensByDefault = side === "left" && !isPhone;
+	const opensByDefault = !isPhone;
 	const isOpen = opensByDefault ? value !== "closed" : value === "open";
 
 	function setOpen(open: boolean) {
@@ -25,7 +22,7 @@ export function usePanel(side: PanelSide) {
 		let next: "open" | "closed" | undefined;
 		if (open && !opensByDefault) next = "open";
 		if (!open && opensByDefault) next = "closed";
-		void navigate({ to: ".", search: (previous) => ({ ...previous, [side]: next }), replace: true });
+		void navigate({ to: ".", search: (previous) => ({ ...previous, left: next }), replace: true });
 	}
 
 	return { isOpen, isPhone, setOpen, toggle: () => setOpen(!isOpen) };

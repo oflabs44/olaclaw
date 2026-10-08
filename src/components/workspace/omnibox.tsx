@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import type { WorkspaceSearch } from "@/routes/__root";
 import { chatTree, parentTitle } from "./chat-tree";
+import { GENERAL_DESK_NAME } from "./general-desk";
 import { useOmnibox } from "./panels";
 
 type Destination = { key: string; label: string; group: string } & Pick<LinkProps, "to" | "params">;
@@ -22,10 +23,10 @@ export function Omnibox() {
 
 	const destinations: Destination[] = [
 		{ key: "today", label: "Today", group: "Go to", to: "/" },
-		{ key: "chats", label: "All chats", group: "Go to", to: "/chats" },
 		{ key: "memory", label: "Memory", group: "Phoebe", to: "/phoebe/memory" },
 		{ key: "connections", label: "Connections", group: "Phoebe", to: "/phoebe/connections" },
 		{ key: "models", label: "Models", group: "Phoebe", to: "/phoebe/models" },
+		{ key: "general", label: GENERAL_DESK_NAME, group: "Desks", to: "/chats" },
 		...desks.map((desk) => ({
 			key: `desk-${desk.id}`,
 			label: desk.name,

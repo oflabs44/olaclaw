@@ -193,22 +193,15 @@ function EventRow({ event, now }: { event: TodayEvent; now: number }) {
 									{option}
 								</Button>
 							))}
-						{/* The detail or the code is in the chat, and Oladayo must read it before he answers. */}
-						{approval.hasMoreToRead && (
+						{/* The detail is in the chat, and Oladayo must read it before he answers. */}
+						{approval.hasMoreToRead && chat && (
 							<Button
 								variant="quiet"
 								className="h-7 px-3"
 								nativeButton={false}
-								render={
-									chat ? (
-										<Link to="/chats/$chatId" params={{ chatId: chat.id }} search />
-									) : (
-										// The approvals pane shows the detail of a question whose session is no chat.
-										<Link to="/" search={(previous) => ({ ...previous, right: "open" })} />
-									)
-								}
+								render={<Link to="/chats/$chatId" params={{ chatId: chat.id }} search />}
 							>
-								{chat ? "Review in chat" : "Review"}
+								Review in chat
 							</Button>
 						)}
 					</div>

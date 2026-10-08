@@ -164,8 +164,8 @@ export function PiSessionProvider({
 		const messages = ownMessages();
 		const isFirstRun = messages.filter((message) => message.role === "user").length === 1;
 		const runEnded = events.some((agentEvent) => agentEvent.type === "run_end");
-		// The approvals panel lists the questions, so it reloads when `ask` starts and when it ends:
-		// answered here, answered from the panel, or withdrawn by a Stop. The same holds for a proposed
+		// The left pane and Today show the questions that wait, so they reload when `ask` starts and when
+		// it ends: answered here, answered on Today, or withdrawn by a Stop. The same holds for a proposed
 		// brief, and an approved one also changes the desk. Phoebe's other workspace tools change the desks
 		// and the chats that the panes list.
 		const workspaceChanged = events.some(

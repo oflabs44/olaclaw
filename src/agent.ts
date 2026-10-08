@@ -8,7 +8,7 @@ import { Lifecycle } from "agents/lifecycle";
 import { MCPClientManager } from "agents/mcp/client";
 import { createAI } from "agents/models/pi-ai";
 import { WebSockets } from "agents/websockets";
-import { type ApprovalRecord, type ApprovalSummary, Approvals } from "./approvals";
+import { Approvals } from "./approvals";
 import { type ChatSummary, Chats } from "./chats";
 import { MAX_DESK_BRIEF_LENGTH } from "./desk-look";
 import { type Desk, type DeskInput, type DeskNote, Desks } from "./desks";
@@ -16,7 +16,7 @@ import { type EventRecord, Events } from "./events";
 import { clock, instructions } from "./instructions";
 import { Memory, type MemoryEntry } from "./memory";
 import { DEFAULT_MODEL, MODELS, type ModelId } from "./models";
-import { AYO_CALLBACK_PATH, ayoCalls, ayoExecuteParts } from "./protocol";
+import { AYO_CALLBACK_PATH } from "./protocol";
 import { PiSessionSockets } from "./sockets";
 import { toolsExtension } from "./tools";
 import { askExtension } from "./tools/ask";
@@ -39,7 +39,7 @@ export type TodayEvent = EventRecord & {
 	readonly approval: {
 		readonly question: string;
 		readonly options: readonly string[];
-		/** True when the question comes with a detail or code, which Oladayo must read before he answers. */
+		/** True when the question comes with a detail, which Oladayo must read before he answers. */
 		readonly hasMoreToRead: boolean;
 	} | null;
 };
@@ -138,10 +138,6 @@ export class PiAgent extends DurableObject<Env> {
 		return this.chats.list();
 	}
 
-	createChat(): Promise<ChatSummary> {
-		return this.chats.create();
-	}
-
 	forkChat(chatId: string, entryId: string): Promise<ChatSummary> {
 		return this.chats.fork(chatId, entryId, (model) => this.#modelRef(model));
 	}
@@ -228,9 +224,9 @@ export class PiAgent extends DurableObject<Env> {
 		this.desks.removeNote(deskId, noteId);
 	}
 
-	/** A new chat at the desk that starts with `text`. The run goes on without a socket; the chat page then follows it. */
-	async startDeskChat(deskId: string, text: string): Promise<ChatSummary> {
-		if (!this.desks.find(deskId)) throw new Error(`Unknown desk ${JSON.stringify(deskId)}`);
+	/** A new chat that starts with `text`, at the desk or at none. The run goes on without a socket; the chat page then follows it. */
+	async startChat(deskId: string | null, text: string): Promise<ChatSummary> {
+		if (deskId !== null && !this.desks.find(deskId)) throw new Error(`Unknown desk ${JSON.stringify(deskId)}`);
 		// An RPC call does not pass through `fetch`, and the run needs the MCP client for Ayo.
 		await this.lifecycle.start();
 		return this.chats.start(deskId, text);
@@ -257,7 +253,7 @@ export class PiAgent extends DurableObject<Env> {
 				approval: {
 					question: approval.question,
 					options: approval.options,
-					hasMoreToRead: approval.detail !== null || approval.code !== null,
+					hasMoreToRead: approval.detail !== null,
 				},
 			}));
 		const oldest = Date.now() - TODAY_AGE_LIMIT;
@@ -275,7 +271,7 @@ export class PiAgent extends DurableObject<Env> {
 				approval: {
 					question: approval.question,
 					options: approval.options,
-					hasMoreToRead: approval.detail !== null || approval.code !== null,
+					hasMoreToRead: approval.detail !== null,
 				},
 			});
 		}
@@ -286,19 +282,12 @@ export class PiAgent extends DurableObject<Env> {
 		return this.memory.list();
 	}
 
-	listApprovals(): ApprovalSummary[] {
-		return this.approvals.list(APPROVAL_LIST_LIMIT).map(({ code, ...approval }) => {
-			const source = code === null ? null : ayoExecuteParts(code).code;
-			return {
-				...approval,
-				codeLineCount: source === null ? null : source.split("\n").length,
-				codeCalls: source === null ? [] : ayoCalls(source),
-			};
-		});
-	}
-
-	getApproval(callId: string): ApprovalRecord | undefined {
-		return this.approvals.find(callId);
+	/** The chats with a question that waits for Oladayo. */
+	listWaitingChatIds(): string[] {
+		return this.approvals
+			.list(APPROVAL_LIST_LIMIT)
+			.filter((approval) => approval.decision === null)
+			.map((approval) => approval.sessionId);
 	}
 
 	decideApproval(callId: string, answer: string): void {

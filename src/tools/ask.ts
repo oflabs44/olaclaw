@@ -1,12 +1,12 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineExtension, defineTool, section } from "@earendil-works/pi-durable";
 import type { Approvals } from "../approvals";
-import { ASK_TOOL } from "../protocol";
+import { type AnswerDetails, ASK_TOOL } from "../protocol";
 
 const USAGE =
 	"Use ask only when Oladayo's choice changes what you do next and neither memory nor this conversation answers it; put the option you recommend first.";
 
-/** The call stays open until Oladayo picks an option, in the chat or in the approvals panel. */
+/** The call stays open until Oladayo picks an option, in the chat or on the Today page. */
 function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 	return defineTool({
 		name: ASK_TOOL,
@@ -30,7 +30,8 @@ function askTool(approvals: Pick<Approvals, "open" | "wait">) {
 			approvals.open(String(api.conversationId), api.callId, question, options, detail);
 			const answer = await approvals.wait(api.callId, context.abortSignal);
 			const text = options.includes(answer) ? `Oladayo chose: ${answer}` : `Oladayo answered in his own words: ${answer}`;
-			return { content: [{ type: "text", text }] };
+			// The chat shows the answer from the details, so it does not read it out of the text for the model.
+			return { content: [{ type: "text", text }], details: { answer } satisfies AnswerDetails };
 		},
 	});
 }

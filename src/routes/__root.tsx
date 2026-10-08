@@ -9,12 +9,12 @@ import {
 	useLoaderData,
 	useRouter,
 } from "@tanstack/react-router";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { z } from "zod";
 import { Chrome } from "@/components/workspace/chrome";
 import { Omnibox } from "@/components/workspace/omnibox";
 import { PageHeader } from "@/components/workspace/page-header";
-import { ApprovalsPane, LeftPane } from "@/components/workspace/panes";
+import { LeftPane } from "@/components/workspace/panes";
 import { WorkspaceKeys } from "@/components/workspace/workspace-keys";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -23,7 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useKeyboardViewport } from "@/lib/use-keyboard-viewport";
 import appCss from "@/styles.css?url";
 import { getThemePreference, SYSTEM_THEME_SCRIPT, type ThemePreference } from "@/theme";
-import { getApprovals, getAyoConnection, getChats, getDesks } from "@/workspace-data";
+import { getAyoConnection, getChats, getDesks, getWaitingChatIds } from "@/workspace-data";
 
 declare module "@tanstack/react-router" {
 	interface StaticDataRouteOption {
@@ -32,14 +32,11 @@ declare module "@tanstack/react-router" {
 	}
 }
 
-// Panel and omnibox state is navigation state, so it lives in the URL. Absent panel params mean
+// Panel and omnibox state is navigation state, so it lives in the URL. An absent panel param means
 // the device default (see components/workspace/panels.ts).
 const workspaceSearch = z.object({
 	left: z.enum(["open", "closed"]).optional().catch(undefined),
-	right: z.enum(["open", "closed"]).optional().catch(undefined),
 	omni: z.boolean().optional().catch(undefined),
-	/** The decided approval that is open in full: the id of its tool call. */
-	approval: z.string().optional().catch(undefined),
 });
 
 export type WorkspaceSearch = z.infer<typeof workspaceSearch>;
@@ -60,17 +57,17 @@ function ThemeColorMeta({ theme }: { theme: ThemePreference }) {
 
 export const Route = createRootRoute({
 	validateSearch: workspaceSearch,
-	search: { middlewares: [retainSearchParams(["left", "right"])] },
+	search: { middlewares: [retainSearchParams(["left"])] },
 	loader: async () => {
-		const [theme, chats, desks, approvals, isAyoConnected] = await Promise.all([
+		const [theme, chats, desks, waitingChatIds, isAyoConnected] = await Promise.all([
 			getThemePreference(),
 			getChats(),
 			getDesks(),
-			getApprovals(),
+			getWaitingChatIds(),
 			// A status dot must not break the app when Ayo or the MCP client fails.
 			getAyoConnection().catch(() => false),
 		]);
-		return { theme, chats, desks, approvals, isAyoConnected };
+		return { theme, chats, desks, waitingChatIds, isAyoConnected };
 	},
 	// This tab invalidates after its own chat changes. After 30 s the next navigation reloads, which
 	// picks up chats made on other devices.
@@ -125,12 +122,10 @@ function RootDocument({ children }: { children: ReactNode }) {
 
 /**
  * The chrome strip on wide screens, then the stage: the left pane and the card with the page.
- * Phones drop the chrome and the card frame, and the left pane becomes a drawer. The approvals open as a sheet over the page.
+ * Phones drop the chrome and the card frame, and the left pane becomes a drawer.
  */
 function Workspace() {
 	useKeyboardViewport();
-	// The approvals sheet opens inside the card, so it needs the element.
-	const [card, setCard] = useState<HTMLElement | null>(null);
 	return (
 		<TooltipProvider>
 			<Toaster>
@@ -139,12 +134,10 @@ function Workspace() {
 					<div className="flex min-h-0 min-w-0 bg-paper wide:mx-1.5 wide:gap-2.5 wide:rounded-t-card wide:px-2.5 wide:pt-2.5">
 						<LeftPane />
 						<main
-							ref={setCard}
 							className="flex min-w-0 flex-1 flex-col bg-sheet max-wide:bg-paper wide:relative wide:overflow-hidden wide:rounded-t-card wide:border wide:border-b-0 wide:border-line wide:shadow-float"
 						>
 							<Outlet />
 						</main>
-						<ApprovalsPane card={card} />
 					</div>
 				</div>
 				<Omnibox />
