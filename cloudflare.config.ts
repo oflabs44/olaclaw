@@ -11,6 +11,7 @@ export default defineConfig({
 		domains: ["ai.fagbemi.me"],
 		workersDev: false,
 		previewUrls: false,
+		observability: { enabled: true },
 		exports: {
 			PiAgent: exports.durableObject({ storage: "sqlite" }),
 		},
