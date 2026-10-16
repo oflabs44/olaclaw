@@ -37,6 +37,7 @@ type AyoClient = Pick<
 	| "connectToServer"
 	| "discoverIfConnected"
 	| "callTool"
+	| "removeServer"
 >;
 
 export async function isAyoConnected(mcp: AyoClient): Promise<boolean> {
@@ -45,20 +46,31 @@ export async function isAyoConnected(mcp: AyoClient): Promise<boolean> {
 }
 
 /**
- * Connects with the stored token. Returns the login URL when Ayo wants Oladayo to sign in; its OAuth
+ * Connects with the stored token, or with a new registration when the stored one fails. Returns the login URL when Ayo wants Oladayo to sign in; its OAuth
  * server then sends the browser to `callbackUrl`, which must reach this object.
  */
 export async function connectAyo(mcp: AyoClient, callbackUrl: string): Promise<string | null> {
 	await mcp.waitForConnections({ timeout: RESTORE_TIMEOUT_MILLISECONDS });
-	// Registering again would drop the OAuth client id that the first login stored.
-	if (!mcp.listServers().some((server) => server.id === AYO_SERVER_ID)) {
-		await mcp.registerServer(AYO_SERVER_ID, {
-			url: AYO_URL,
-			name: "Ayo",
-			callbackUrl,
-			transport: { type: "streamable-http" },
-		});
+	// Registering again would drop the OAuth client id that the first login stored, so try the stored server first.
+	if (mcp.listServers().some((server) => server.id === AYO_SERVER_ID)) {
+		try {
+			return await connectRegisteredAyo(mcp);
+		} catch (error) {
+			// A stored connection can stay broken, as it did after Ayo's domain lapsed. Start over with a new login.
+			console.error("Stored Ayo connection failed, registering Ayo again", error);
+			await mcp.removeServer(AYO_SERVER_ID);
+		}
 	}
+	await mcp.registerServer(AYO_SERVER_ID, {
+		url: AYO_URL,
+		name: "Ayo",
+		callbackUrl,
+		transport: { type: "streamable-http" },
+	});
+	return connectRegisteredAyo(mcp);
+}
+
+async function connectRegisteredAyo(mcp: AyoClient): Promise<string | null> {
 	const connection = await mcp.connectToServer(AYO_SERVER_ID);
 	if (connection.state === "authenticating") return connection.authUrl;
 	if (connection.state === "failed") throw new Error(`Cannot connect to Ayo: ${connection.error}`);
