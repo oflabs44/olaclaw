@@ -1,0 +1,20 @@
+diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
+index 106f2b9617fa3b810261e067a3c965f209907af3..be4f3fca6a40640d19cc9c345cb168fa5d04bf6f 100644
+--- a/dist/api/anthropic-messages.js
++++ b/dist/api/anthropic-messages.js
+@@ -1085,7 +1085,6 @@ function convertMessages(transformedMessages, isOAuthToken, cacheControl, allowE
+             }
+         }
+         else if (msg.role === "assistant") {
+-            flushPendingSystemMessages();
+             const blocks = [];
+             for (const block of msg.content) {
+                 if (block.type === "text") {
+@@ -1143,6 +1142,7 @@ function convertMessages(transformedMessages, isOAuthToken, cacheControl, allowE
+             }
+             if (blocks.length === 0)
+                 continue;
++            flushPendingSystemMessages();
+             const messageIndex = params.length;
+             params.push({
+                 role: "assistant",

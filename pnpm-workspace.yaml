@@ -7,3 +7,5 @@ allowBuilds:
 # agents 0.26.0 (first release with agents/harness/pi) is newer than pnpm's default 1-day release cooldown.
 minimumReleaseAgeExclude:
   - agents@0.26.0
+patchedDependencies:
+  '@earendil-works/pi-ai@1.0.0': patches/@earendil-works__pi-ai@1.0.0.patch
